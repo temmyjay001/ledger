@@ -142,17 +142,14 @@ BEGIN
     -- Create schema
     EXECUTE format('CREATE SCHEMA IF NOT EXISTS %I', schema_name);
     
-    -- Set search path to new schema
-    EXECUTE format('SET search_path TO %I', schema_name);
-    
-    -- Create accounts table
+    -- Create accounts table (referencing enums from public schema)
     EXECUTE format('
         CREATE TABLE %I.accounts (
             id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-            code TEXT NOT NULL UNIQUE, -- client reference like ''cash'', ''customer_wallets''
-            name TEXT NOT NULL, -- human readable name
-            account_type account_type_enum NOT NULL,
-            parent_id UUID REFERENCES %I.accounts(id), -- for account hierarchy
+            code TEXT NOT NULL UNIQUE,
+            name TEXT NOT NULL,
+            account_type public.account_type_enum NOT NULL,
+            parent_id UUID REFERENCES %I.accounts(id),
             currency CHAR(3) NOT NULL DEFAULT ''NGN'',
             metadata JSONB DEFAULT ''{}'',
             created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -165,8 +162,8 @@ BEGIN
             id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
             idempotency_key TEXT NOT NULL UNIQUE,
             description TEXT NOT NULL,
-            reference TEXT, -- external system reference
-            status transaction_status_enum DEFAULT ''pending'',
+            reference TEXT,
+            status public.transaction_status_enum DEFAULT ''pending'',
             posted_at TIMESTAMPTZ DEFAULT NOW(),
             metadata JSONB DEFAULT ''{}'',
             created_at TIMESTAMPTZ DEFAULT NOW()
@@ -178,8 +175,8 @@ BEGIN
             id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
             transaction_id UUID NOT NULL REFERENCES %I.transactions(id) ON DELETE CASCADE,
             account_id UUID NOT NULL REFERENCES %I.accounts(id),
-            amount NUMERIC(20,4) NOT NULL CHECK (amount > 0), -- always positive
-            side transaction_side_enum NOT NULL,
+            amount NUMERIC(20,4) NOT NULL CHECK (amount > 0),
+            side public.transaction_side_enum NOT NULL,
             currency CHAR(3) NOT NULL,
             metadata JSONB DEFAULT ''{}'',
             created_at TIMESTAMPTZ DEFAULT NOW()
@@ -191,7 +188,7 @@ BEGIN
             account_id UUID PRIMARY KEY REFERENCES %I.accounts(id) ON DELETE CASCADE,
             currency CHAR(3) NOT NULL,
             balance NUMERIC(20,4) NOT NULL DEFAULT 0,
-            version BIGINT NOT NULL DEFAULT 0, -- optimistic concurrency
+            version BIGINT NOT NULL DEFAULT 0,
             updated_at TIMESTAMPTZ DEFAULT NOW(),
             
             UNIQUE(account_id, currency)
@@ -209,8 +206,6 @@ BEGIN
     EXECUTE format('CREATE INDEX idx_%I_transaction_lines_transaction ON %I.transaction_lines(transaction_id)', 
                    replace(schema_name, '-', '_'), schema_name);
     
-    -- Reset search path
-    SET search_path TO public;
 END;
 $$ LANGUAGE plpgsql;
 

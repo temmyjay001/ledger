@@ -34,50 +34,50 @@ func (s *Server) Router() http.Handler {
 
 	r.Route("/api/v1", func(r chi.Router) {
 		// Public auth routes
-		r.Post("/auth/register", s.registerHandler)
-		r.Post("/auth/login", s.loginHandler)
+		r.Post("/auth/register", s.authHandlers.RegisterHandler)
+		r.Post("/auth/login", s.authHandlers.LoginHandler)
 
 		// Protected routes
 		r.Group(func(r chi.Router) {
-			// r.Use(s.authMiddleware)
+			r.Use(s.authMiddleware.UserAuthMiddleware)
 
 			// User management
-			r.Get("/user", s.getCurrentUserHandler)
+			r.Get("/user", s.authHandlers.GetCurrentUserHandler)
 
 			// Tenant management
-			r.Post("/tenants", s.createTenantHandler)
-			r.Get("/tenants", s.listTenantsHandler)
-			r.Get("/tenants/{tenantId}", s.getTenantHandler)
+			r.Post("/tenants", s.tenantHandlers.CreateTenantHandler)
+			r.Get("/tenants", s.tenantHandlers.ListTenantsHandler)
+			r.Get("/tenants/{tenantId}", s.tenantHandlers.GetTenantHandler)
 
 			// API key management
-			r.Post("/tenants/{tenantId}/api-keys", s.createAPIKeyHandler)
-			r.Get("/tenants/{tenantId}/api-keys", s.listAPIKeysHandler)
-			r.Delete("/tenants/{tenantId}/api-keys/{keyId}", s.deleteAPIKeyHandler)
+			r.Post("/tenants/{tenantId}/api-keys", s.tenantHandlers.CreateAPIKeyHandler)
+			r.Get("/tenants/{tenantId}/api-keys", s.tenantHandlers.ListAPIKeysHandler)
+			r.Delete("/tenants/{tenantId}/api-keys/{keyId}", s.tenantHandlers.DeleteAPIKeyHandler)
 		})
 
 		// Tenant-scoped routes (require API key authentication)
 		r.Route("/tenants/{tenantSlug}", func(r chi.Router) {
-			// r.Use(s.apiKeyAuthMiddleware) // Will implement this next
+			r.Use(s.authMiddleware.APIKeyAuthMiddleware)
 
 			// Account management
-			r.Post("/accounts", s.createAccountHandler)
-			r.Get("/accounts", s.listAccountsHandler)
-			r.Get("/accounts/{accountId}", s.getAccountHandler)
-			r.Get("/accounts/{accountId}/balance", s.getAccountBalanceHandler)
+			r.With(s.authMiddleware.RequireScopes("accounts:write")).Post("/accounts", s.createAccountHandler)
+			r.With(s.authMiddleware.RequireScopes("accounts:read")).Get("/accounts", s.listAccountsHandler)
+			r.With(s.authMiddleware.RequireScopes("accounts:read")).Get("/accounts/{accountId}", s.getAccountHandler)
+			r.With(s.authMiddleware.RequireScopes("balances:read")).Get("/accounts/{accountId}/balance", s.getAccountBalanceHandler)
 
 			// Transaction management
-			r.Post("/transactions", s.createTransactionHandler)
-			r.Post("/transactions/double-entry", s.createDoubleEntryTransactionHandler)
-			r.Get("/transactions", s.listTransactionsHandler)
-			r.Get("/transactions/{transactionId}", s.getTransactionHandler)
+			r.With(s.authMiddleware.RequireScopes("transactions:write")).Post("/transactions", s.createTransactionHandler)
+			r.With(s.authMiddleware.RequireScopes("transactions:write")).Post("/transactions/double-entry", s.createDoubleEntryTransactionHandler)
+			r.With(s.authMiddleware.RequireScopes("transactions:read")).Get("/transactions", s.listTransactionsHandler)
+			r.With(s.authMiddleware.RequireScopes("transactions:read")).Get("/transactions/{transactionId}", s.getTransactionHandler)
 
 			// Reporting
-			r.Get("/reports/transactions", s.getTransactionReportHandler)
-			r.Get("/reports/balances", s.getBalanceReportHandler)
+			r.With(s.authMiddleware.RequireScopes("reports:read")).Get("/reports/transactions", s.getTransactionReportHandler)
+			r.With(s.authMiddleware.RequireScopes("reports:read")).Get("/reports/balances", s.getBalanceReportHandler)
 
 			// Webhook management
-			r.Post("/webhooks", s.createWebhookHandler)
-			r.Get("/webhooks", s.listWebhooksHandler)
+			r.With(s.authMiddleware.RequireScopes("webhooks:manage")).Post("/webhooks", s.createWebhookHandler)
+			r.With(s.authMiddleware.RequireScopes("webhooks:manage")).Get("/webhooks", s.listWebhooksHandler)
 		})
 	})
 
