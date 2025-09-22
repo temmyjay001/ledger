@@ -8,46 +8,35 @@ A distributed ledger service for financial transactions with multi-tenant suppor
 - Event sourcing for audit trails
 - RESTful API with proper error handling
 - Database migrations
-- Docker support for development
 
 ## Quick Start
 
 ```bash
+# Copy environment file
+cp .env.example .env
+
+# Setup database
+make setup-db
+
 # Install dependencies
-make deps
+go mod tidy
 
-# Setup environment
-make setup
+# Generate sqlc code
+make sqlc
 
-# Run with Docker
-docker-compose up -d
+# Run migrations
+make migrate-up
 
-# Start the application
-make run
+# Start development server with hot reload
+make dev
+
+# Run tests
+make test
+
+# Reset database (careful!)
+make reset-db
 ```
 
 ## API Documentation
 
 See [docs/api.md](docs/api.md) for detailed API documentation.
-
-## Development
-
-```bash
-# Run tests
-make test
-
-# Format code
-make fmt
-
-# Lint code
-make lint
-```
-
-## Deployment
-
-The application can be containerized using the provided Dockerfile:
-
-```bash
-docker build -t ledger-service .
-docker run -p 8080:8080 ledger-service
-```
