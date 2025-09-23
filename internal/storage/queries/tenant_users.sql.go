@@ -8,9 +8,9 @@ package queries
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const addUserToTenant = `-- name: AddUserToTenant :one
@@ -82,15 +82,15 @@ ORDER BY tu.created_at DESC
 `
 
 type ListTenantUsersRow struct {
-	ID          uuid.UUID          `db:"id" json:"id"`
-	TenantID    uuid.UUID          `db:"tenant_id" json:"tenant_id"`
-	UserID      uuid.UUID          `db:"user_id" json:"user_id"`
-	Role        UserRoleEnum       `db:"role" json:"role"`
-	Permissions json.RawMessage    `db:"permissions" json:"permissions"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	Email       string             `db:"email" json:"email"`
-	FirstName   string             `db:"first_name" json:"first_name"`
-	LastName    string             `db:"last_name" json:"last_name"`
+	ID          uuid.UUID       `db:"id" json:"id"`
+	TenantID    uuid.UUID       `db:"tenant_id" json:"tenant_id"`
+	UserID      uuid.UUID       `db:"user_id" json:"user_id"`
+	Role        UserRoleEnum    `db:"role" json:"role"`
+	Permissions json.RawMessage `db:"permissions" json:"permissions"`
+	CreatedAt   time.Time       `db:"created_at" json:"created_at"`
+	Email       string          `db:"email" json:"email"`
+	FirstName   string          `db:"first_name" json:"first_name"`
+	LastName    string          `db:"last_name" json:"last_name"`
 }
 
 func (q *Queries) ListTenantUsers(ctx context.Context, tenantID uuid.UUID) ([]ListTenantUsersRow, error) {

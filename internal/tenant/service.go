@@ -30,7 +30,7 @@ func NewService(db *storage.DB, authService *auth.Service) *Service {
 
 func (s *Service) CreateTenant(ctx context.Context, userID uuid.UUID, req CreateTenantRequest) (*TenantResponse, error) {
 	log.Printf("Creating tenant for user %s with request: %+v", userID, req)
-	
+
 	// Validate and sanitize slug
 	slug, err := s.validateAndSanitizeSlug(req.Slug)
 	if err != nil {
@@ -227,7 +227,7 @@ func (s *Service) ListAPIKeys(ctx context.Context, userID uuid.UUID, tenantID uu
 			Scopes:     key.Scopes,
 			ExpiresAt:  expiresAt,
 			LastUsedAt: lastUsedAt,
-			CreatedAt:  key.CreatedAt.Time,
+			CreatedAt:  key.CreatedAt,
 		})
 	}
 
@@ -313,8 +313,8 @@ func (s *Service) tenantToResponse(tenant queries.Tenant) *TenantResponse {
 		CountryCode:  tenant.CountryCode.String,
 		BaseCurrency: tenant.BaseCurrency.String,
 		Timezone:     tenant.Timezone.String,
-		CreatedAt:    tenant.CreatedAt.Time,
-		UpdatedAt:    tenant.UpdatedAt.Time,
+		CreatedAt:    tenant.CreatedAt,
+		UpdatedAt:    tenant.UpdatedAt,
 	}
 
 	if tenant.BusinessType.Valid {

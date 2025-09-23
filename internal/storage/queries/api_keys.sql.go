@@ -7,6 +7,7 @@ package queries
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -87,7 +88,7 @@ type GetAPIKeyByHashRow struct {
 	Scopes     []string           `db:"scopes" json:"scopes"`
 	ExpiresAt  pgtype.Timestamptz `db:"expires_at" json:"expires_at"`
 	LastUsedAt pgtype.Timestamptz `db:"last_used_at" json:"last_used_at"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CreatedAt  time.Time          `db:"created_at" json:"created_at"`
 	TenantSlug string             `db:"tenant_slug" json:"tenant_slug"`
 }
 
@@ -124,7 +125,7 @@ type ListTenantAPIKeysRow struct {
 	Scopes     []string           `db:"scopes" json:"scopes"`
 	ExpiresAt  pgtype.Timestamptz `db:"expires_at" json:"expires_at"`
 	LastUsedAt pgtype.Timestamptz `db:"last_used_at" json:"last_used_at"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CreatedAt  time.Time          `db:"created_at" json:"created_at"`
 }
 
 func (q *Queries) ListTenantAPIKeys(ctx context.Context, tenantID uuid.UUID) ([]ListTenantAPIKeysRow, error) {

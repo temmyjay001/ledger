@@ -78,7 +78,7 @@ func (db *DB) WithTenantSchema(ctx context.Context, tenantSlug string, fn func()
 }
 
 func (db *DB) SetSearchPath(ctx context.Context, schema string) error {
-	query := fmt.Sprintf("SET search_path TO %s", schema)
+	query := fmt.Sprintf("SET search_path TO '%s'", schema)
 
 	_, err := db.Pool.Exec(ctx, query)
 

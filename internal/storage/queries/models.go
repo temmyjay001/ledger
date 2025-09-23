@@ -8,6 +8,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -327,25 +328,25 @@ func AllUserStatusEnumValues() []UserStatusEnum {
 
 // Template table for sqlc generation - actual data is in tenant schemas
 type Account struct {
-	ID          uuid.UUID          `db:"id" json:"id"`
-	Code        string             `db:"code" json:"code"`
-	Name        string             `db:"name" json:"name"`
-	AccountType AccountTypeEnum    `db:"account_type" json:"account_type"`
-	ParentID    pgtype.UUID        `db:"parent_id" json:"parent_id"`
-	Currency    string             `db:"currency" json:"currency"`
-	Metadata    json.RawMessage    `db:"metadata" json:"metadata"`
-	IsActive    pgtype.Bool        `db:"is_active" json:"is_active"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ID          uuid.UUID       `db:"id" json:"id"`
+	Code        string          `db:"code" json:"code"`
+	Name        string          `db:"name" json:"name"`
+	AccountType AccountTypeEnum `db:"account_type" json:"account_type"`
+	ParentID    *uuid.UUID      `db:"parent_id" json:"parent_id"`
+	Currency    string          `db:"currency" json:"currency"`
+	Metadata    json.RawMessage `db:"metadata" json:"metadata"`
+	IsActive    bool            `db:"is_active" json:"is_active"`
+	CreatedAt   time.Time       `db:"created_at" json:"created_at"`
+	UpdatedAt   time.Time       `db:"updated_at" json:"updated_at"`
 }
 
 // Template table for sqlc generation - actual data is in tenant schemas
 type AccountBalance struct {
-	AccountID uuid.UUID          `db:"account_id" json:"account_id"`
-	Currency  string             `db:"currency" json:"currency"`
-	Balance   decimal.Decimal    `db:"balance" json:"balance"`
-	Version   int64              `db:"version" json:"version"`
-	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	AccountID uuid.UUID       `db:"account_id" json:"account_id"`
+	Currency  string          `db:"currency" json:"currency"`
+	Balance   decimal.Decimal `db:"balance" json:"balance"`
+	Version   int64           `db:"version" json:"version"`
+	UpdatedAt time.Time       `db:"updated_at" json:"updated_at"`
 }
 
 type ApiKey struct {
@@ -357,42 +358,42 @@ type ApiKey struct {
 	Scopes     []string           `db:"scopes" json:"scopes"`
 	ExpiresAt  pgtype.Timestamptz `db:"expires_at" json:"expires_at"`
 	LastUsedAt pgtype.Timestamptz `db:"last_used_at" json:"last_used_at"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CreatedAt  time.Time          `db:"created_at" json:"created_at"`
 }
 
 type Event struct {
-	EventID        uuid.UUID          `db:"event_id" json:"event_id"`
-	TenantID       uuid.UUID          `db:"tenant_id" json:"tenant_id"`
-	AggregateID    uuid.UUID          `db:"aggregate_id" json:"aggregate_id"`
-	AggregateType  string             `db:"aggregate_type" json:"aggregate_type"`
-	EventType      string             `db:"event_type" json:"event_type"`
-	EventVersion   int32              `db:"event_version" json:"event_version"`
-	EventData      json.RawMessage    `db:"event_data" json:"event_data"`
-	Metadata       json.RawMessage    `db:"metadata" json:"metadata"`
-	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	SequenceNumber pgtype.Int8        `db:"sequence_number" json:"sequence_number"`
+	EventID        uuid.UUID       `db:"event_id" json:"event_id"`
+	TenantID       uuid.UUID       `db:"tenant_id" json:"tenant_id"`
+	AggregateID    uuid.UUID       `db:"aggregate_id" json:"aggregate_id"`
+	AggregateType  string          `db:"aggregate_type" json:"aggregate_type"`
+	EventType      string          `db:"event_type" json:"event_type"`
+	EventVersion   int32           `db:"event_version" json:"event_version"`
+	EventData      json.RawMessage `db:"event_data" json:"event_data"`
+	Metadata       json.RawMessage `db:"metadata" json:"metadata"`
+	CreatedAt      time.Time       `db:"created_at" json:"created_at"`
+	SequenceNumber pgtype.Int8     `db:"sequence_number" json:"sequence_number"`
 }
 
 type Tenant struct {
-	ID           uuid.UUID          `db:"id" json:"id"`
-	Name         string             `db:"name" json:"name"`
-	Slug         string             `db:"slug" json:"slug"`
-	BusinessType pgtype.Text        `db:"business_type" json:"business_type"`
-	CountryCode  pgtype.Text        `db:"country_code" json:"country_code"`
-	BaseCurrency pgtype.Text        `db:"base_currency" json:"base_currency"`
-	Timezone     pgtype.Text        `db:"timezone" json:"timezone"`
-	Metadata     json.RawMessage    `db:"metadata" json:"metadata"`
-	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ID           uuid.UUID       `db:"id" json:"id"`
+	Name         string          `db:"name" json:"name"`
+	Slug         string          `db:"slug" json:"slug"`
+	BusinessType pgtype.Text     `db:"business_type" json:"business_type"`
+	CountryCode  pgtype.Text     `db:"country_code" json:"country_code"`
+	BaseCurrency pgtype.Text     `db:"base_currency" json:"base_currency"`
+	Timezone     pgtype.Text     `db:"timezone" json:"timezone"`
+	Metadata     json.RawMessage `db:"metadata" json:"metadata"`
+	CreatedAt    time.Time       `db:"created_at" json:"created_at"`
+	UpdatedAt    time.Time       `db:"updated_at" json:"updated_at"`
 }
 
 type TenantUser struct {
-	ID          uuid.UUID          `db:"id" json:"id"`
-	TenantID    uuid.UUID          `db:"tenant_id" json:"tenant_id"`
-	UserID      uuid.UUID          `db:"user_id" json:"user_id"`
-	Role        UserRoleEnum       `db:"role" json:"role"`
-	Permissions json.RawMessage    `db:"permissions" json:"permissions"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ID          uuid.UUID       `db:"id" json:"id"`
+	TenantID    uuid.UUID       `db:"tenant_id" json:"tenant_id"`
+	UserID      uuid.UUID       `db:"user_id" json:"user_id"`
+	Role        UserRoleEnum    `db:"role" json:"role"`
+	Permissions json.RawMessage `db:"permissions" json:"permissions"`
+	CreatedAt   time.Time       `db:"created_at" json:"created_at"`
 }
 
 // Template table for sqlc generation - actual data is in tenant schemas
@@ -402,9 +403,9 @@ type Transaction struct {
 	Description    string                    `db:"description" json:"description"`
 	Reference      pgtype.Text               `db:"reference" json:"reference"`
 	Status         NullTransactionStatusEnum `db:"status" json:"status"`
-	PostedAt       pgtype.Timestamptz        `db:"posted_at" json:"posted_at"`
+	PostedAt       time.Time                 `db:"posted_at" json:"posted_at"`
 	Metadata       json.RawMessage           `db:"metadata" json:"metadata"`
-	CreatedAt      pgtype.Timestamptz        `db:"created_at" json:"created_at"`
+	CreatedAt      time.Time                 `db:"created_at" json:"created_at"`
 }
 
 // Template table for sqlc generation - actual data is in tenant schemas
@@ -416,7 +417,7 @@ type TransactionLine struct {
 	Side          TransactionSideEnum `db:"side" json:"side"`
 	Currency      string              `db:"currency" json:"currency"`
 	Metadata      json.RawMessage     `db:"metadata" json:"metadata"`
-	CreatedAt     pgtype.Timestamptz  `db:"created_at" json:"created_at"`
+	CreatedAt     time.Time           `db:"created_at" json:"created_at"`
 }
 
 type User struct {
@@ -430,8 +431,8 @@ type User struct {
 	LastLoginAt         pgtype.Timestamptz `db:"last_login_at" json:"last_login_at"`
 	FailedLoginAttempts pgtype.Int4        `db:"failed_login_attempts" json:"failed_login_attempts"`
 	LockedUntil         pgtype.Timestamptz `db:"locked_until" json:"locked_until"`
-	CreatedAt           pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt           pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	CreatedAt           time.Time          `db:"created_at" json:"created_at"`
+	UpdatedAt           time.Time          `db:"updated_at" json:"updated_at"`
 }
 
 type WebhookDelivery struct {
@@ -446,5 +447,5 @@ type WebhookDelivery struct {
 	NextRetryAt    pgtype.Timestamptz `db:"next_retry_at" json:"next_retry_at"`
 	DeliveredAt    pgtype.Timestamptz `db:"delivered_at" json:"delivered_at"`
 	FailedAt       pgtype.Timestamptz `db:"failed_at" json:"failed_at"`
-	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CreatedAt      time.Time          `db:"created_at" json:"created_at"`
 }

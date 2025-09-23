@@ -70,7 +70,7 @@ func (m *Middleware) RequireScopes(requiredScopes ...string) func(http.Handler) 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Get API key claims from context
-			claims, ok := r.Context().Value(APIKeyContextKey).(*APIKeyClaims)
+			claims, ok := GetAPIKeyClaims(r.Context())
 			if !ok {
 				m.writeForbiddenResponse(w, "API key required")
 				return

@@ -8,7 +8,6 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
@@ -54,7 +53,7 @@ type Querier interface {
 	IncrementFailedLoginAttempts(ctx context.Context, id uuid.UUID) error
 	ListAccountBalancesByCurrency(ctx context.Context, currency string) ([]ListAccountBalancesByCurrencyRow, error)
 	ListAccounts(ctx context.Context) ([]Account, error)
-	ListAccountsByParent(ctx context.Context, parentID pgtype.UUID) ([]Account, error)
+	ListAccountsByParent(ctx context.Context, parentID *uuid.UUID) ([]Account, error)
 	ListAccountsByParentCode(ctx context.Context, code string) ([]Account, error)
 	ListAccountsByType(ctx context.Context, accountType AccountTypeEnum) ([]Account, error)
 	ListAccountsWithBalances(ctx context.Context) ([]ListAccountsWithBalancesRow, error)

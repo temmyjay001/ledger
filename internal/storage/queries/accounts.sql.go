@@ -8,6 +8,7 @@ package queries
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -32,7 +33,7 @@ type CreateAccountParams struct {
 	Code        string          `db:"code" json:"code"`
 	Name        string          `db:"name" json:"name"`
 	AccountType AccountTypeEnum `db:"account_type" json:"account_type"`
-	ParentID    pgtype.UUID     `db:"parent_id" json:"parent_id"`
+	ParentID    *uuid.UUID      `db:"parent_id" json:"parent_id"`
 	Currency    string          `db:"currency" json:"currency"`
 	Metadata    json.RawMessage `db:"metadata" json:"metadata"`
 }
@@ -337,18 +338,18 @@ ORDER BY path
 `
 
 type GetAccountHierarchyRow struct {
-	ID          uuid.UUID          `db:"id" json:"id"`
-	Code        string             `db:"code" json:"code"`
-	Name        string             `db:"name" json:"name"`
-	AccountType AccountTypeEnum    `db:"account_type" json:"account_type"`
-	ParentID    pgtype.UUID        `db:"parent_id" json:"parent_id"`
-	Currency    string             `db:"currency" json:"currency"`
-	Metadata    json.RawMessage    `db:"metadata" json:"metadata"`
-	IsActive    pgtype.Bool        `db:"is_active" json:"is_active"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	Level       int32              `db:"level" json:"level"`
-	Path        string             `db:"path" json:"path"`
+	ID          uuid.UUID       `db:"id" json:"id"`
+	Code        string          `db:"code" json:"code"`
+	Name        string          `db:"name" json:"name"`
+	AccountType AccountTypeEnum `db:"account_type" json:"account_type"`
+	ParentID    *uuid.UUID      `db:"parent_id" json:"parent_id"`
+	Currency    string          `db:"currency" json:"currency"`
+	Metadata    json.RawMessage `db:"metadata" json:"metadata"`
+	IsActive    bool            `db:"is_active" json:"is_active"`
+	CreatedAt   time.Time       `db:"created_at" json:"created_at"`
+	UpdatedAt   time.Time       `db:"updated_at" json:"updated_at"`
+	Level       int32           `db:"level" json:"level"`
+	Path        string          `db:"path" json:"path"`
 }
 
 func (q *Queries) GetAccountHierarchy(ctx context.Context) ([]GetAccountHierarchyRow, error) {
@@ -441,20 +442,20 @@ type GetAccountWithBalanceParams struct {
 }
 
 type GetAccountWithBalanceRow struct {
-	ID               uuid.UUID          `db:"id" json:"id"`
-	Code             string             `db:"code" json:"code"`
-	Name             string             `db:"name" json:"name"`
-	AccountType      AccountTypeEnum    `db:"account_type" json:"account_type"`
-	ParentID         pgtype.UUID        `db:"parent_id" json:"parent_id"`
-	Currency         string             `db:"currency" json:"currency"`
-	Metadata         json.RawMessage    `db:"metadata" json:"metadata"`
-	IsActive         pgtype.Bool        `db:"is_active" json:"is_active"`
-	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	Balance          decimal.Decimal    `db:"balance" json:"balance"`
-	BalanceCurrency  pgtype.Text        `db:"balance_currency" json:"balance_currency"`
-	BalanceVersion   pgtype.Int8        `db:"balance_version" json:"balance_version"`
-	BalanceUpdatedAt pgtype.Timestamptz `db:"balance_updated_at" json:"balance_updated_at"`
+	ID               uuid.UUID       `db:"id" json:"id"`
+	Code             string          `db:"code" json:"code"`
+	Name             string          `db:"name" json:"name"`
+	AccountType      AccountTypeEnum `db:"account_type" json:"account_type"`
+	ParentID         *uuid.UUID      `db:"parent_id" json:"parent_id"`
+	Currency         string          `db:"currency" json:"currency"`
+	Metadata         json.RawMessage `db:"metadata" json:"metadata"`
+	IsActive         bool            `db:"is_active" json:"is_active"`
+	CreatedAt        time.Time       `db:"created_at" json:"created_at"`
+	UpdatedAt        time.Time       `db:"updated_at" json:"updated_at"`
+	Balance          decimal.Decimal `db:"balance" json:"balance"`
+	BalanceCurrency  pgtype.Text     `db:"balance_currency" json:"balance_currency"`
+	BalanceVersion   pgtype.Int8     `db:"balance_version" json:"balance_version"`
+	BalanceUpdatedAt time.Time       `db:"balance_updated_at" json:"balance_updated_at"`
 }
 
 // Utility queries for reporting and validation
@@ -497,14 +498,14 @@ ORDER BY a.code
 `
 
 type ListAccountBalancesByCurrencyRow struct {
-	AccountID        uuid.UUID          `db:"account_id" json:"account_id"`
-	Code             string             `db:"code" json:"code"`
-	Name             string             `db:"name" json:"name"`
-	AccountType      AccountTypeEnum    `db:"account_type" json:"account_type"`
-	Currency         pgtype.Text        `db:"currency" json:"currency"`
-	Balance          decimal.Decimal    `db:"balance" json:"balance"`
-	Version          pgtype.Int8        `db:"version" json:"version"`
-	BalanceUpdatedAt pgtype.Timestamptz `db:"balance_updated_at" json:"balance_updated_at"`
+	AccountID        uuid.UUID       `db:"account_id" json:"account_id"`
+	Code             string          `db:"code" json:"code"`
+	Name             string          `db:"name" json:"name"`
+	AccountType      AccountTypeEnum `db:"account_type" json:"account_type"`
+	Currency         pgtype.Text     `db:"currency" json:"currency"`
+	Balance          decimal.Decimal `db:"balance" json:"balance"`
+	Version          pgtype.Int8     `db:"version" json:"version"`
+	BalanceUpdatedAt time.Time       `db:"balance_updated_at" json:"balance_updated_at"`
 }
 
 func (q *Queries) ListAccountBalancesByCurrency(ctx context.Context, currency string) ([]ListAccountBalancesByCurrencyRow, error) {
@@ -579,7 +580,7 @@ WHERE parent_id = $1 AND is_active = true
 ORDER BY code ASC
 `
 
-func (q *Queries) ListAccountsByParent(ctx context.Context, parentID pgtype.UUID) ([]Account, error) {
+func (q *Queries) ListAccountsByParent(ctx context.Context, parentID *uuid.UUID) ([]Account, error) {
 	rows, err := q.db.Query(ctx, listAccountsByParent, parentID)
 	if err != nil {
 		return nil, err
@@ -714,15 +715,15 @@ ORDER BY a.code
 `
 
 type ListAccountsWithBalancesRow struct {
-	ID              uuid.UUID          `db:"id" json:"id"`
-	Code            string             `db:"code" json:"code"`
-	Name            string             `db:"name" json:"name"`
-	AccountType     AccountTypeEnum    `db:"account_type" json:"account_type"`
-	ParentID        pgtype.UUID        `db:"parent_id" json:"parent_id"`
-	DefaultCurrency string             `db:"default_currency" json:"default_currency"`
-	Metadata        json.RawMessage    `db:"metadata" json:"metadata"`
-	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	Balances        interface{}        `db:"balances" json:"balances"`
+	ID              uuid.UUID       `db:"id" json:"id"`
+	Code            string          `db:"code" json:"code"`
+	Name            string          `db:"name" json:"name"`
+	AccountType     AccountTypeEnum `db:"account_type" json:"account_type"`
+	ParentID        *uuid.UUID      `db:"parent_id" json:"parent_id"`
+	DefaultCurrency string          `db:"default_currency" json:"default_currency"`
+	Metadata        json.RawMessage `db:"metadata" json:"metadata"`
+	CreatedAt       time.Time       `db:"created_at" json:"created_at"`
+	Balances        interface{}     `db:"balances" json:"balances"`
 }
 
 func (q *Queries) ListAccountsWithBalances(ctx context.Context) ([]ListAccountsWithBalancesRow, error) {
@@ -898,7 +899,7 @@ WHERE id = $1
 type ValidateParentAccountRow struct {
 	ID          uuid.UUID       `db:"id" json:"id"`
 	AccountType AccountTypeEnum `db:"account_type" json:"account_type"`
-	IsActive    pgtype.Bool     `db:"is_active" json:"is_active"`
+	IsActive    bool            `db:"is_active" json:"is_active"`
 }
 
 func (q *Queries) ValidateParentAccount(ctx context.Context, id uuid.UUID) (ValidateParentAccountRow, error) {

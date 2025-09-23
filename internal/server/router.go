@@ -60,10 +60,16 @@ func (s *Server) Router() http.Handler {
 			r.Use(s.authMiddleware.APIKeyAuthMiddleware)
 
 			// Account management
-			r.With(s.authMiddleware.RequireScopes("accounts:write")).Post("/accounts", s.createAccountHandler)
-			r.With(s.authMiddleware.RequireScopes("accounts:read")).Get("/accounts", s.listAccountsHandler)
-			r.With(s.authMiddleware.RequireScopes("accounts:read")).Get("/accounts/{accountId}", s.getAccountHandler)
-			r.With(s.authMiddleware.RequireScopes("balances:read")).Get("/accounts/{accountId}/balance", s.getAccountBalanceHandler)
+			r.With(s.authMiddleware.RequireScopes("accounts:write")).Post("/accounts", s.accountHandlers.CreateAccountHandler)
+			r.With(s.authMiddleware.RequireScopes("accounts:read")).Get("/accounts", s.accountHandlers.ListAccountsHandler)
+			r.With(s.authMiddleware.RequireScopes("accounts:read")).Get("/accounts/{accountId}", s.accountHandlers.GetAccountHandler)
+			r.With(s.authMiddleware.RequireScopes("accounts:read")).Get("/accounts/code/{accountCode}", s.accountHandlers.GetAccountByCodeHandler)
+			r.With(s.authMiddleware.RequireScopes("accounts:write")).Put("/accounts/{accountId}", s.accountHandlers.UpdateAccountHandler)
+			r.With(s.authMiddleware.RequireScopes("accounts:write")).Delete("/accounts/{accountId}", s.accountHandlers.DeleteAccountHandler)
+			r.With(s.authMiddleware.RequireScopes("balances:read")).Get("/accounts/{accountId}/balance", s.accountHandlers.GetAccountBalanceHandler)
+			r.With(s.authMiddleware.RequireScopes("accounts:read")).Get("/accounts/hierarchy", s.accountHandlers.GetAccountHierarchyHandler)
+			r.With(s.authMiddleware.RequireScopes("accounts:read")).Get("/accounts/stats", s.accountHandlers.GetAccountStatsHandler)
+			r.With(s.authMiddleware.RequireScopes("accounts:write")).Post("/accounts/setup", s.accountHandlers.SetupChartOfAccountsHandler)
 
 			// Transaction management
 			r.With(s.authMiddleware.RequireScopes("transactions:write")).Post("/transactions", s.createTransactionHandler)

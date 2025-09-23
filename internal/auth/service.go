@@ -197,7 +197,7 @@ func (s *Service) GenerateAPIKey(ctx context.Context, req CreateAPIKeyRequest) (
 		KeyPrefix: keyPrefix,
 		Scopes:    apiKeyRecord.Scopes,
 		ExpiresAt: req.ExpiresAt,
-		CreatedAt: apiKeyRecord.CreatedAt.Time,
+		CreatedAt: apiKeyRecord.CreatedAt,
 	}, nil
 }
 
@@ -294,6 +294,6 @@ func (s *Service) userToResponse(user queries.User) *UserResponse {
 		LastName:      user.LastName,
 		EmailVerified: user.EmailVerified.Bool,
 		Status:        string(user.Status.UserStatusEnum),
-		CreatedAt:     user.CreatedAt.Time,
+		CreatedAt:     user.CreatedAt,
 	}
 }
