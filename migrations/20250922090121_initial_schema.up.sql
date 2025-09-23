@@ -152,6 +152,7 @@ BEGIN
             parent_id UUID REFERENCES %I.accounts(id),
             currency CHAR(3) NOT NULL DEFAULT ''NGN'',
             metadata JSONB DEFAULT ''{}'',
+            is_active BOOLEAN DEFAULT true,
             created_at TIMESTAMPTZ DEFAULT NOW(),
             updated_at TIMESTAMPTZ DEFAULT NOW()
         )', schema_name, schema_name);

@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/shopspring/decimal"
 )
 
 type AccountTypeEnum string
@@ -324,6 +325,29 @@ func AllUserStatusEnumValues() []UserStatusEnum {
 	}
 }
 
+// Template table for sqlc generation - actual data is in tenant schemas
+type Account struct {
+	ID          uuid.UUID          `db:"id" json:"id"`
+	Code        string             `db:"code" json:"code"`
+	Name        string             `db:"name" json:"name"`
+	AccountType AccountTypeEnum    `db:"account_type" json:"account_type"`
+	ParentID    pgtype.UUID        `db:"parent_id" json:"parent_id"`
+	Currency    string             `db:"currency" json:"currency"`
+	Metadata    json.RawMessage    `db:"metadata" json:"metadata"`
+	IsActive    pgtype.Bool        `db:"is_active" json:"is_active"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+// Template table for sqlc generation - actual data is in tenant schemas
+type AccountBalance struct {
+	AccountID uuid.UUID          `db:"account_id" json:"account_id"`
+	Currency  string             `db:"currency" json:"currency"`
+	Balance   decimal.Decimal    `db:"balance" json:"balance"`
+	Version   int64              `db:"version" json:"version"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
 type ApiKey struct {
 	ID         uuid.UUID          `db:"id" json:"id"`
 	TenantID   uuid.UUID          `db:"tenant_id" json:"tenant_id"`
@@ -369,6 +393,30 @@ type TenantUser struct {
 	Role        UserRoleEnum       `db:"role" json:"role"`
 	Permissions json.RawMessage    `db:"permissions" json:"permissions"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+// Template table for sqlc generation - actual data is in tenant schemas
+type Transaction struct {
+	ID             uuid.UUID                 `db:"id" json:"id"`
+	IdempotencyKey string                    `db:"idempotency_key" json:"idempotency_key"`
+	Description    string                    `db:"description" json:"description"`
+	Reference      pgtype.Text               `db:"reference" json:"reference"`
+	Status         NullTransactionStatusEnum `db:"status" json:"status"`
+	PostedAt       pgtype.Timestamptz        `db:"posted_at" json:"posted_at"`
+	Metadata       json.RawMessage           `db:"metadata" json:"metadata"`
+	CreatedAt      pgtype.Timestamptz        `db:"created_at" json:"created_at"`
+}
+
+// Template table for sqlc generation - actual data is in tenant schemas
+type TransactionLine struct {
+	ID            uuid.UUID           `db:"id" json:"id"`
+	TransactionID uuid.UUID           `db:"transaction_id" json:"transaction_id"`
+	AccountID     uuid.UUID           `db:"account_id" json:"account_id"`
+	Amount        decimal.Decimal     `db:"amount" json:"amount"`
+	Side          TransactionSideEnum `db:"side" json:"side"`
+	Currency      string              `db:"currency" json:"currency"`
+	Metadata      json.RawMessage     `db:"metadata" json:"metadata"`
+	CreatedAt     pgtype.Timestamptz  `db:"created_at" json:"created_at"`
 }
 
 type User struct {

@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
@@ -15,6 +16,11 @@ type Querier interface {
 	AddUserToTenant(ctx context.Context, arg AddUserToTenantParams) (TenantUser, error)
 	// sql/queries/api_keys.sql
 	CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (ApiKey, error)
+	// sql/queries/accounts.sql
+	// Account Management Queries for sqlc
+	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
+	// Account Balance Operations
+	CreateAccountBalance(ctx context.Context, arg CreateAccountBalanceParams) (AccountBalance, error)
 	// sql/queries/events.sql
 	CreateEvent(ctx context.Context, arg CreateEventParams) (Event, error)
 	// sql/queries/tenants.sql
@@ -23,8 +29,19 @@ type Querier interface {
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	// sql/queries/webhooks.sql
 	CreateWebhookDelivery(ctx context.Context, arg CreateWebhookDeliveryParams) (WebhookDelivery, error)
+	DeactivateAccount(ctx context.Context, id uuid.UUID) (Account, error)
 	DeleteAPIKey(ctx context.Context, arg DeleteAPIKeyParams) error
 	GetAPIKeyByHash(ctx context.Context, keyHash string) (GetAPIKeyByHashRow, error)
+	GetAccountBalance(ctx context.Context, arg GetAccountBalanceParams) (AccountBalance, error)
+	GetAccountBalanceForUpdate(ctx context.Context, arg GetAccountBalanceForUpdateParams) (AccountBalance, error)
+	GetAccountBalanceSummary(ctx context.Context) ([]GetAccountBalanceSummaryRow, error)
+	GetAccountBalances(ctx context.Context, accountID uuid.UUID) ([]AccountBalance, error)
+	GetAccountByCode(ctx context.Context, code string) (Account, error)
+	GetAccountByID(ctx context.Context, id uuid.UUID) (Account, error)
+	GetAccountHierarchy(ctx context.Context) ([]GetAccountHierarchyRow, error)
+	GetAccountStats(ctx context.Context) (GetAccountStatsRow, error)
+	// Utility queries for reporting and validation
+	GetAccountWithBalance(ctx context.Context, arg GetAccountWithBalanceParams) (GetAccountWithBalanceRow, error)
 	GetEventsAfterSequence(ctx context.Context, arg GetEventsAfterSequenceParams) ([]Event, error)
 	GetEventsByAggregate(ctx context.Context, arg GetEventsByAggregateParams) ([]Event, error)
 	GetEventsByType(ctx context.Context, arg GetEventsByTypeParams) ([]Event, error)
@@ -35,15 +52,26 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	IncrementFailedLoginAttempts(ctx context.Context, id uuid.UUID) error
+	ListAccountBalancesByCurrency(ctx context.Context, currency string) ([]ListAccountBalancesByCurrencyRow, error)
+	ListAccounts(ctx context.Context) ([]Account, error)
+	ListAccountsByParent(ctx context.Context, parentID pgtype.UUID) ([]Account, error)
+	ListAccountsByParentCode(ctx context.Context, code string) ([]Account, error)
+	ListAccountsByType(ctx context.Context, accountType AccountTypeEnum) ([]Account, error)
+	ListAccountsWithBalances(ctx context.Context) ([]ListAccountsWithBalancesRow, error)
 	ListTenantAPIKeys(ctx context.Context, tenantID uuid.UUID) ([]ListTenantAPIKeysRow, error)
 	ListTenantUsers(ctx context.Context, tenantID uuid.UUID) ([]ListTenantUsersRow, error)
 	ListTenantsByUser(ctx context.Context, userID uuid.UUID) ([]Tenant, error)
 	RemoveUserFromTenant(ctx context.Context, arg RemoveUserFromTenantParams) error
+	SearchAccounts(ctx context.Context, arg SearchAccountsParams) ([]Account, error)
 	UpdateAPIKeyLastUsed(ctx context.Context, id uuid.UUID) error
+	UpdateAccount(ctx context.Context, arg UpdateAccountParams) (Account, error)
+	UpdateAccountBalance(ctx context.Context, arg UpdateAccountBalanceParams) (AccountBalance, error)
 	UpdateTenantUserRole(ctx context.Context, arg UpdateTenantUserRoleParams) error
 	UpdateUserLastLogin(ctx context.Context, id uuid.UUID) error
 	UpdateWebhookDeliveryFailure(ctx context.Context, arg UpdateWebhookDeliveryFailureParams) error
 	UpdateWebhookDeliverySuccess(ctx context.Context, arg UpdateWebhookDeliverySuccessParams) error
+	ValidateAccountCode(ctx context.Context, code string) (bool, error)
+	ValidateParentAccount(ctx context.Context, id uuid.UUID) (ValidateParentAccountRow, error)
 	VerifyUserEmail(ctx context.Context, id uuid.UUID) error
 }
 
