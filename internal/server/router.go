@@ -67,15 +67,20 @@ func (s *Server) Router() http.Handler {
 			r.With(s.authMiddleware.RequireScopes("accounts:write")).Put("/accounts/{accountId}", s.accountHandlers.UpdateAccountHandler)
 			r.With(s.authMiddleware.RequireScopes("accounts:write")).Delete("/accounts/{accountId}", s.accountHandlers.DeleteAccountHandler)
 			r.With(s.authMiddleware.RequireScopes("balances:read")).Get("/accounts/{accountId}/balance", s.accountHandlers.GetAccountBalanceHandler)
+			r.With(s.authMiddleware.RequireScopes("balances:read")).Get("/accounts/{accountId}/balance/history", s.accountHandlers.GetAccountBalanceHistoryHandler)
+			r.With(s.authMiddleware.RequireScopes("balances:read")).Get("/balances/summary", s.accountHandlers.GetBalanceSummaryHandler)
+
+			// Account hierarchy and stats
 			r.With(s.authMiddleware.RequireScopes("accounts:read")).Get("/accounts/hierarchy", s.accountHandlers.GetAccountHierarchyHandler)
 			r.With(s.authMiddleware.RequireScopes("accounts:read")).Get("/accounts/stats", s.accountHandlers.GetAccountStatsHandler)
 			r.With(s.authMiddleware.RequireScopes("accounts:write")).Post("/accounts/setup", s.accountHandlers.SetupChartOfAccountsHandler)
 
 			// Transaction management
-			r.With(s.authMiddleware.RequireScopes("transactions:write")).Post("/transactions", s.createTransactionHandler)
-			r.With(s.authMiddleware.RequireScopes("transactions:write")).Post("/transactions/double-entry", s.createDoubleEntryTransactionHandler)
-			r.With(s.authMiddleware.RequireScopes("transactions:read")).Get("/transactions", s.listTransactionsHandler)
-			r.With(s.authMiddleware.RequireScopes("transactions:read")).Get("/transactions/{transactionId}", s.getTransactionHandler)
+			r.With(s.authMiddleware.RequireScopes("transactions:write")).Post("/transactions", s.transactionHandlers.CreateTransactionHandler)
+			r.With(s.authMiddleware.RequireScopes("transactions:write")).Post("/transactions/double-entry", s.transactionHandlers.CreateDoubleEntryTransactionHandler)
+			r.With(s.authMiddleware.RequireScopes("transactions:read")).Get("/transactions", s.transactionHandlers.ListTransactionsHandler)
+			r.With(s.authMiddleware.RequireScopes("transactions:read")).Get("/transactions/{transactionId}", s.transactionHandlers.GetTransactionHandler)
+			r.With(s.authMiddleware.RequireScopes("transactions:read")).Get("/transactions/{transactionId}/lines", s.transactionHandlers.GetTransactionLinesHandler)
 
 			// Reporting
 			r.With(s.authMiddleware.RequireScopes("reports:read")).Get("/reports/transactions", s.getTransactionReportHandler)

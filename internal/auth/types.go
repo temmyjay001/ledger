@@ -2,9 +2,23 @@
 package auth
 
 import (
+	"errors"
+	"fmt"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+)
+
+var (
+	ErrInvalidCredentials = errors.New("Invalid email or password")
+	ErrUserNotFound       = errors.New("user not found")
+	ErrUserLocked         = errors.New("account is locked due to too many failed attempts")
+	ErrInvalidToken       = errors.New("invalid token")
+	ErrTokenExpired       = errors.New("token has expired")
+	ErrEmailAlreadyExists = errors.New("email already exists")
+	ErrInvalidAPIKey      = errors.New("invalid API key")
+	ErrAPIKeyNameExists   = fmt.Errorf("API key name already exists")
 )
 
 // Registration request
@@ -19,6 +33,30 @@ type RegisterRequest struct {
 type LoginRequest struct {
 	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required"`
+}
+
+type Claims struct {
+	UserID   uuid.UUID  `json:"user_id"`
+	Email    string     `json:"email"`
+	TenantID *uuid.UUID `json:"tenant_id,omitempty"`
+	jwt.RegisteredClaims
+}
+
+type APIKeyClaims struct {
+	KeyID      uuid.UUID `json:"key_id"`
+	TenantID   uuid.UUID `json:"tenant_id"`
+	TenantSlug string    `json:"tenant_slug"`
+	Scopes     []string  `json:"scopes"`
+}
+
+type UserResponse struct {
+	ID            uuid.UUID `json:"id"`
+	Email         string    `json:"email"`
+	FirstName     string    `json:"first_name"`
+	LastName      string    `json:"last_name"`
+	EmailVerified bool      `json:"email_verified"`
+	Status        string    `json:"status"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 // Login response
@@ -38,13 +76,13 @@ type CreateAPIKeyRequest struct {
 
 // API Key creation response
 type CreateAPIKeyResponse struct {
-	ID        uuid.UUID `json:"id"`
-	Name      string    `json:"name"`
-	Key       string    `json:"key"` // Only returned once during creation!
-	KeyPrefix string    `json:"key_prefix"`
-	Scopes    []string  `json:"scopes"`
+	ID        uuid.UUID  `json:"id"`
+	Name      string     `json:"name"`
+	Key       string     `json:"key"` // Only returned once during creation!
+	KeyPrefix string     `json:"key_prefix"`
+	Scopes    []string   `json:"scopes"`
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
+	CreatedAt time.Time  `json:"created_at"`
 }
 
 // API Key list item (without the actual key)

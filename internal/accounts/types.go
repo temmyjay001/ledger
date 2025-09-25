@@ -83,6 +83,7 @@ type AccountResponse struct {
 }
 
 type AccountBalanceResponse struct {
+	AccountID string          `json:"account_id"`
 	Currency  string          `json:"currency"`
 	Balance   decimal.Decimal `json:"balance"`
 	Version   int64           `json:"version"`
@@ -91,10 +92,10 @@ type AccountBalanceResponse struct {
 
 type AccountWithBalanceResponse struct {
 	AccountResponse
-	Balance         *decimal.Decimal `json:"balance,omitempty"`
-	BalanceCurrency string           `json:"balance_currency,omitempty"`
-	BalanceVersion  int64            `json:"balance_version,omitempty"`
-	BalanceUpdatedAt *time.Time      `json:"balance_updated_at,omitempty"`
+	Balance          *decimal.Decimal `json:"balance,omitempty"`
+	BalanceCurrency  string           `json:"balance_currency,omitempty"`
+	BalanceVersion   int64            `json:"balance_version,omitempty"`
+	BalanceUpdatedAt *time.Time       `json:"balance_updated_at,omitempty"`
 }
 
 type AccountWithBalancesResponse struct {
@@ -110,13 +111,6 @@ type AccountStatsResponse struct {
 	RevenueAccounts   int64 `json:"revenue_accounts"`
 	ExpenseAccounts   int64 `json:"expense_accounts"`
 	CurrenciesCount   int64 `json:"currencies_count"`
-}
-
-type BalanceSummaryResponse struct {
-	AccountType    string          `json:"account_type"`
-	Currency       string          `json:"currency"`
-	TotalBalance   decimal.Decimal `json:"total_balance"`
-	AccountCount   int64           `json:"account_count"`
 }
 
 // Internal Types for Business Logic
@@ -136,9 +130,49 @@ type BalanceUpdate struct {
 // Nigerian Fintech Templates
 
 type ChartOfAccountsTemplate struct {
-	Name        string                    `json:"name"`
-	Description string                    `json:"description"`
-	Accounts    []CreateAccountRequest    `json:"accounts"`
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	Accounts    []CreateAccountRequest `json:"accounts"`
+}
+
+// Balance History Types
+type BalanceHistoryEntry struct {
+	Balance     decimal.Decimal `json:"balance"`
+	Version     int64          `json:"version"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	Description string         `json:"description,omitempty"`
+	Reference   string         `json:"reference,omitempty"`
+}
+
+type BalanceHistoryResponse struct {
+	AccountID string                `json:"account_id"`
+	Currency  string                `json:"currency"`
+	Days      int                   `json:"days"`
+	History   []BalanceHistoryEntry `json:"history"`
+}
+
+// Balance Summary Types - ACTUAL summary with totals and insights
+type BalanceSummaryResponse struct {
+	Currency         string                  `json:"currency"`
+	TotalAccounts    int                     `json:"total_accounts"`
+	TotalAssets      decimal.Decimal         `json:"total_assets"`
+	TotalLiabilities decimal.Decimal         `json:"total_liabilities"`
+	TotalEquity      decimal.Decimal         `json:"total_equity"`
+	TotalRevenue     decimal.Decimal         `json:"total_revenue"`
+	TotalExpenses    decimal.Decimal         `json:"total_expenses"`
+	NetWorth         decimal.Decimal         `json:"net_worth"` // Assets - Liabilities
+	Breakdown        []AccountTypeBreakdown  `json:"breakdown"`
+	GeneratedAt      time.Time              `json:"generated_at"`
+}
+
+type AccountTypeBreakdown struct {
+	AccountType    string          `json:"account_type"`
+	Currency       string          `json:"currency"`
+	AccountCount   int             `json:"account_count"`
+	TotalBalance   decimal.Decimal `json:"total_balance"`
+	AverageBalance decimal.Decimal `json:"average_balance"`
+	MinimumBalance decimal.Decimal `json:"minimum_balance"`
+	MaximumBalance decimal.Decimal `json:"maximum_balance"`
 }
 
 // Default chart of accounts templates for different business types

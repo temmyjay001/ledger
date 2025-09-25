@@ -28,3 +28,9 @@ WHERE id = $1;
 -- name: DeleteAPIKey :exec
 DELETE FROM api_keys 
 WHERE id = $1 AND tenant_id = $2;
+
+-- name: APIKeyNameExist :one
+SELECT ak.name, t.id as tenant_id
+FROM api_keys ak
+JOIN tenants t ON ak.tenant_id = t.id
+WHERE ak.name = $1;

@@ -10,11 +10,12 @@ import (
 
 // Errors
 var (
-	ErrTenantNotFound           = errors.New("tenant not found")
-	ErrTenantSlugExists         = errors.New("tenant slug already exists")
-	ErrInvalidSlug              = errors.New("invalid slug: must be 3-50 characters, lowercase letters, numbers, and hyphens only")
-	ErrInsufficientPermissions  = errors.New("insufficient permissions")
-	ErrInvalidScopes            = errors.New("invalid scopes provided")
+	ErrTenantNotFound          = errors.New("tenant not found")
+	ErrTenantSlugExists        = errors.New("tenant slug already exists")
+	ErrInvalidSlug             = errors.New("invalid slug: must be 3-50 characters, lowercase letters, numbers, and hyphens only")
+	ErrInsufficientPermissions = errors.New("insufficient permissions")
+	ErrInvalidScopes           = errors.New("invalid scopes provided")
+	ErrAPIKeyNameExists        = errors.New("API key name already exists")
 )
 
 // Request types

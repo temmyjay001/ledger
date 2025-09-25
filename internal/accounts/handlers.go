@@ -3,6 +3,7 @@ package accounts
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
@@ -341,69 +342,81 @@ func (h *Handlers) DeleteAccountHandler(w http.ResponseWriter, r *http.Request) 
 
 // GET /api/v1/tenants/{slug}/accounts/{accountId}/balance
 func (h *Handlers) GetAccountBalanceHandler(w http.ResponseWriter, r *http.Request) {
-	// Get tenant slug from URL
 	tenantSlug := chi.URLParam(r, "tenantSlug")
-	if tenantSlug == "" {
-		api.WriteBadRequestResponse(w, "tenant slug is required")
-		return
-	}
+	accountID := chi.URLParam(r, "accountId")
 
-	// Validate API key claims
-	claims, ok := auth.GetAPIKeyClaims(r.Context())
-	if !ok {
-		api.WriteUnauthorizedResponse(w, "API key authentication required")
-		return
-	}
-
-	// Verify tenant slug matches API key
-	if claims.TenantSlug != tenantSlug {
-		api.WriteForbiddenResponse(w, "API key not authorized for this tenant")
-		return
-	}
-
-	// Parse account ID
-	accountIDStr := chi.URLParam(r, "accountId")
-	accountID, err := uuid.Parse(accountIDStr)
+	id, err := uuid.Parse(accountID)
 	if err != nil {
-		api.WriteBadRequestResponse(w, "invalid account ID")
+		api.WriteBadRequestResponse(w, "Invalid account ID")
 		return
 	}
 
-	// Get currency from query parameter (default to NGN)
 	currency := r.URL.Query().Get("currency")
 	if currency == "" {
-		currency = "NGN"
+		currency = "NGN" // Default currency
 	}
 
-	// Validate currency
-	if !IsValidCurrency(currency) {
-		api.WriteBadRequestResponse(w, "invalid currency code")
+	balance, err := h.accountService.GetAccountBalance(r.Context(), tenantSlug, id, currency)
+	if err != nil {
+		if err == ErrAccountNotFound {
+			api.WriteNotFoundResponse(w, "Account not found")
+			return
+		}
+		api.WriteInternalErrorResponse(w, err.Error())
 		return
 	}
 
-	// Get single currency balance or all balances
-	if currency != "" {
-		balance, err := h.accountService.GetAccountBalance(r.Context(), tenantSlug, accountID, currency)
-		if err != nil {
-			api.WriteInternalErrorResponse(w, "failed to get account balance")
-			return
-		}
+	// Enhanced response format as specified in document
+	api.WriteSuccessResponse(w, http.StatusOK, map[string]interface{}{
+		"currency": balance.Currency,
+		"balance":  balance.Balance.String(),
+		"version":  balance.Version,
+	})
+}
 
-		api.WriteSuccessResponse(w, http.StatusOK, map[string]interface{}{
-			"balance": balance,
-		})
-	} else {
-		balances, err := h.accountService.GetAccountBalances(r.Context(), tenantSlug, accountID)
-		if err != nil {
-			api.WriteInternalErrorResponse(w, "failed to get account balances")
-			return
-		}
+// GET /api/v1/tenants/{slug}/accounts/{accountId}/balance/history
+func (h *Handlers) GetAccountBalanceHistoryHandler(w http.ResponseWriter, r *http.Request) {
+	tenantSlug := chi.URLParam(r, "tenantSlug")
+	accountID := chi.URLParam(r, "accountId")
 
-		api.WriteSuccessResponse(w, http.StatusOK, map[string]interface{}{
-			"balances": balances,
-			"count":    len(balances),
-		})
+	id, err := uuid.Parse(accountID)
+	if err != nil {
+		api.WriteBadRequestResponse(w, "Invalid account ID")
+		return
 	}
+
+	days := getIntParam(r, "days", 30)
+	currency := r.URL.Query().Get("currency")
+	if currency == "" {
+		currency = "NGN" // Default currency
+	}
+
+	// Validate days parameter
+	if days <= 0 || days > 365 {
+		days = 30
+	}
+
+	history, err := h.accountService.GetAccountBalanceHistory(r.Context(), tenantSlug, id, currency, days)
+	if err != nil {
+		api.WriteInternalErrorResponse(w, err.Error())
+		return
+	}
+
+	api.WriteSuccessResponse(w, http.StatusOK, history)
+}
+
+// GET /api/v1/tenants/{slug}/accounts/{accountId}/balance/summary 
+func (h *Handlers) GetBalanceSummaryHandler(w http.ResponseWriter, r *http.Request) {
+	tenantSlug := chi.URLParam(r, "tenantSlug")
+	currency := r.URL.Query().Get("currency")
+
+	summary, err := h.accountService.GetBalanceSummary(r.Context(), tenantSlug, currency)
+	if err != nil {
+		api.WriteInternalErrorResponse(w, err.Error())
+		return
+	}
+
+	api.WriteSuccessResponse(w, http.StatusOK, summary)
 }
 
 // GET /api/v1/tenants/{slug}/accounts/hierarchy
@@ -535,4 +548,19 @@ func (h *Handlers) SetupChartOfAccountsHandler(w http.ResponseWriter, r *http.Re
 		"accounts": accounts,
 		"count":    len(accounts),
 	})
+}
+
+// Helper function to parse integer parameters
+func getIntParam(r *http.Request, key string, defaultValue int) int {
+	value := r.URL.Query().Get(key)
+	if value == "" {
+		return defaultValue
+	}
+
+	intValue, err := strconv.Atoi(value)
+	if err != nil {
+		return defaultValue
+	}
+
+	return intValue
 }

@@ -34,39 +34,6 @@ func (s *Server) healthDBHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Ledger operation handlers (will implement properly later)
-func (s *Server) createAccountHandler(w http.ResponseWriter, r *http.Request) {
-	api.WriteErrorResponse(w, http.StatusNotImplemented, "Create account endpoint not implemented yet")
-}
-
-func (s *Server) listAccountsHandler(w http.ResponseWriter, r *http.Request) {
-	api.WriteErrorResponse(w, http.StatusNotImplemented, "List accounts endpoint not implemented yet")
-}
-
-func (s *Server) getAccountHandler(w http.ResponseWriter, r *http.Request) {
-	api.WriteErrorResponse(w, http.StatusNotImplemented, "Get account endpoint not implemented yet")
-}
-
-func (s *Server) getAccountBalanceHandler(w http.ResponseWriter, r *http.Request) {
-	api.WriteErrorResponse(w, http.StatusNotImplemented, "Get account balance endpoint not implemented yet")
-}
-
-func (s *Server) createTransactionHandler(w http.ResponseWriter, r *http.Request) {
-	api.WriteErrorResponse(w, http.StatusNotImplemented, "Create transaction endpoint not implemented yet")
-}
-
-func (s *Server) createDoubleEntryTransactionHandler(w http.ResponseWriter, r *http.Request) {
-	api.WriteErrorResponse(w, http.StatusNotImplemented, "Create double-entry transaction endpoint not implemented yet")
-}
-
-func (s *Server) listTransactionsHandler(w http.ResponseWriter, r *http.Request) {
-	api.WriteErrorResponse(w, http.StatusNotImplemented, "List transactions endpoint not implemented yet")
-}
-
-func (s *Server) getTransactionHandler(w http.ResponseWriter, r *http.Request) {
-	api.WriteErrorResponse(w, http.StatusNotImplemented, "Get transaction endpoint not implemented yet")
-}
-
 func (s *Server) getTransactionReportHandler(w http.ResponseWriter, r *http.Request) {
 	api.WriteErrorResponse(w, http.StatusNotImplemented, "Get transaction report endpoint not implemented yet")
 }

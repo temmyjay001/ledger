@@ -3,6 +3,7 @@ package tenant
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"regexp"
@@ -177,6 +178,12 @@ func (s *Service) CreateAPIKey(ctx context.Context, userID uuid.UUID, tenantID u
 		ExpiresAt: req.ExpiresAt,
 	})
 	if err != nil {
+		if errors.Is(err, auth.ErrAPIKeyNameExists) {
+			return nil, ErrAPIKeyNameExists
+		}
+
+		// Log for debugging but don't expose internal error details
+		log.Printf("Failed to generate API key for tenant %s: %v", tenantID, err)
 		return nil, fmt.Errorf("failed to generate API key: %w", err)
 	}
 

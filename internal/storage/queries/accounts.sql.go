@@ -171,6 +171,52 @@ func (q *Queries) GetAccountBalanceForUpdate(ctx context.Context, arg GetAccount
 	return i, err
 }
 
+const getAccountBalanceHistory = `-- name: GetAccountBalanceHistory :many
+SELECT 
+    ab.account_id,
+    ab.currency,
+    ab.balance,
+    ab.version,
+    ab.updated_at
+FROM account_balances ab
+WHERE ab.account_id = $1 
+AND ab.currency = $2
+AND ab.updated_at >= $3
+ORDER BY ab.updated_at DESC
+`
+
+type GetAccountBalanceHistoryParams struct {
+	AccountID uuid.UUID `db:"account_id" json:"account_id"`
+	Currency  string    `db:"currency" json:"currency"`
+	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
+}
+
+func (q *Queries) GetAccountBalanceHistory(ctx context.Context, arg GetAccountBalanceHistoryParams) ([]AccountBalance, error) {
+	rows, err := q.db.Query(ctx, getAccountBalanceHistory, arg.AccountID, arg.Currency, arg.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AccountBalance{}
+	for rows.Next() {
+		var i AccountBalance
+		if err := rows.Scan(
+			&i.AccountID,
+			&i.Currency,
+			&i.Balance,
+			&i.Version,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getAccountBalanceSummary = `-- name: GetAccountBalanceSummary :many
 SELECT 
     a.account_type,
@@ -477,6 +523,197 @@ func (q *Queries) GetAccountWithBalance(ctx context.Context, arg GetAccountWithB
 		&i.BalanceCurrency,
 		&i.BalanceVersion,
 		&i.BalanceUpdatedAt,
+	)
+	return i, err
+}
+
+const getAllBalanceSummary = `-- name: GetAllBalanceSummary :one
+SELECT 
+    'ALL'::text as currency,
+    COUNT(DISTINCT a.id)::bigint as total_accounts,
+    (
+        SELECT COALESCE(SUM(ab2.balance), 0::numeric(20,4))
+        FROM account_balances ab2
+        JOIN accounts a2 ON ab2.account_id = a2.id
+        WHERE a2.account_type = 'asset' AND a2.is_active = true
+    ) as total_assets,
+    (
+        SELECT COALESCE(SUM(ab2.balance), 0::numeric(20,4))
+        FROM account_balances ab2
+        JOIN accounts a2 ON ab2.account_id = a2.id
+        WHERE a2.account_type = 'liability' AND a2.is_active = true
+    ) as total_liabilities,
+    (
+        SELECT COALESCE(SUM(ab2.balance), 0::numeric(20,4))
+        FROM account_balances ab2
+        JOIN accounts a2 ON ab2.account_id = a2.id
+        WHERE a2.account_type = 'equity' AND a2.is_active = true
+    ) as total_equity,
+    (
+        SELECT COALESCE(SUM(ab2.balance), 0::numeric(20,4))
+        FROM account_balances ab2
+        JOIN accounts a2 ON ab2.account_id = a2.id
+        WHERE a2.account_type = 'revenue' AND a2.is_active = true
+    ) as total_revenue,
+    (
+        SELECT COALESCE(SUM(ab2.balance), 0::numeric(20,4))
+        FROM account_balances ab2
+        JOIN accounts a2 ON ab2.account_id = a2.id
+        WHERE a2.account_type = 'expense' AND a2.is_active = true
+    ) as total_expenses,
+    NOW() as generated_at
+FROM account_balances ab
+JOIN accounts a ON ab.account_id = a.id
+WHERE a.is_active = true
+LIMIT 1
+`
+
+type GetAllBalanceSummaryRow struct {
+	Currency         string      `db:"currency" json:"currency"`
+	TotalAccounts    int64       `db:"total_accounts" json:"total_accounts"`
+	TotalAssets      interface{} `db:"total_assets" json:"total_assets"`
+	TotalLiabilities interface{} `db:"total_liabilities" json:"total_liabilities"`
+	TotalEquity      interface{} `db:"total_equity" json:"total_equity"`
+	TotalRevenue     interface{} `db:"total_revenue" json:"total_revenue"`
+	TotalExpenses    interface{} `db:"total_expenses" json:"total_expenses"`
+	GeneratedAt      interface{} `db:"generated_at" json:"generated_at"`
+}
+
+func (q *Queries) GetAllBalanceSummary(ctx context.Context) (GetAllBalanceSummaryRow, error) {
+	row := q.db.QueryRow(ctx, getAllBalanceSummary)
+	var i GetAllBalanceSummaryRow
+	err := row.Scan(
+		&i.Currency,
+		&i.TotalAccounts,
+		&i.TotalAssets,
+		&i.TotalLiabilities,
+		&i.TotalEquity,
+		&i.TotalRevenue,
+		&i.TotalExpenses,
+		&i.GeneratedAt,
+	)
+	return i, err
+}
+
+const getBalanceSummaryByAccountType = `-- name: GetBalanceSummaryByAccountType :many
+SELECT 
+    a.account_type,
+    ab.currency,
+    COUNT(*)::bigint as account_count,
+    COALESCE(SUM(ab.balance), 0::numeric(20,4)) as total_balance,
+    COALESCE(AVG(ab.balance), 0::numeric(20,4)) as average_balance,
+    COALESCE(MIN(ab.balance), 0::numeric(20,4)) as minimum_balance,
+    COALESCE(MAX(ab.balance), 0::numeric(20,4)) as maximum_balance
+FROM account_balances ab
+JOIN accounts a ON ab.account_id = a.id
+WHERE a.is_active = true
+  AND ($1::text IS NULL OR ab.currency = $1)
+GROUP BY a.account_type, ab.currency
+ORDER BY a.account_type, ab.currency
+`
+
+type GetBalanceSummaryByAccountTypeRow struct {
+	AccountType    AccountTypeEnum `db:"account_type" json:"account_type"`
+	Currency       string          `db:"currency" json:"currency"`
+	AccountCount   int64           `db:"account_count" json:"account_count"`
+	TotalBalance   interface{}     `db:"total_balance" json:"total_balance"`
+	AverageBalance interface{}     `db:"average_balance" json:"average_balance"`
+	MinimumBalance interface{}     `db:"minimum_balance" json:"minimum_balance"`
+	MaximumBalance interface{}     `db:"maximum_balance" json:"maximum_balance"`
+}
+
+func (q *Queries) GetBalanceSummaryByAccountType(ctx context.Context, dollar_1 string) ([]GetBalanceSummaryByAccountTypeRow, error) {
+	rows, err := q.db.Query(ctx, getBalanceSummaryByAccountType, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetBalanceSummaryByAccountTypeRow{}
+	for rows.Next() {
+		var i GetBalanceSummaryByAccountTypeRow
+		if err := rows.Scan(
+			&i.AccountType,
+			&i.Currency,
+			&i.AccountCount,
+			&i.TotalBalance,
+			&i.AverageBalance,
+			&i.MinimumBalance,
+			&i.MaximumBalance,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getBalanceSummaryByCurrency = `-- name: GetBalanceSummaryByCurrency :one
+SELECT 
+    $1::text as currency,
+    COUNT(DISTINCT a.id)::bigint as total_accounts,
+    (
+        SELECT COALESCE(SUM(ab2.balance), 0::numeric(20,4))
+        FROM account_balances ab2
+        JOIN accounts a2 ON ab2.account_id = a2.id
+        WHERE ab2.currency = $1 AND a2.account_type = 'asset' AND a2.is_active = true
+    ) as total_assets,
+    (
+        SELECT COALESCE(SUM(ab2.balance), 0::numeric(20,4))
+        FROM account_balances ab2
+        JOIN accounts a2 ON ab2.account_id = a2.id
+        WHERE ab2.currency = $1 AND a2.account_type = 'liability' AND a2.is_active = true
+    ) as total_liabilities,
+    (
+        SELECT COALESCE(SUM(ab2.balance), 0::numeric(20,4))
+        FROM account_balances ab2
+        JOIN accounts a2 ON ab2.account_id = a2.id
+        WHERE ab2.currency = $1 AND a2.account_type = 'equity' AND a2.is_active = true
+    ) as total_equity,
+    (
+        SELECT COALESCE(SUM(ab2.balance), 0::numeric(20,4))
+        FROM account_balances ab2
+        JOIN accounts a2 ON ab2.account_id = a2.id
+        WHERE ab2.currency = $1 AND a2.account_type = 'revenue' AND a2.is_active = true
+    ) as total_revenue,
+    (
+        SELECT COALESCE(SUM(ab2.balance), 0::numeric(20,4))
+        FROM account_balances ab2
+        JOIN accounts a2 ON ab2.account_id = a2.id
+        WHERE ab2.currency = $1 AND a2.account_type = 'expense' AND a2.is_active = true
+    ) as total_expenses,
+    NOW() as generated_at
+FROM account_balances ab
+JOIN accounts a ON ab.account_id = a.id
+WHERE ab.currency = $1 AND a.is_active = true
+LIMIT 1
+`
+
+type GetBalanceSummaryByCurrencyRow struct {
+	Currency         string      `db:"currency" json:"currency"`
+	TotalAccounts    int64       `db:"total_accounts" json:"total_accounts"`
+	TotalAssets      interface{} `db:"total_assets" json:"total_assets"`
+	TotalLiabilities interface{} `db:"total_liabilities" json:"total_liabilities"`
+	TotalEquity      interface{} `db:"total_equity" json:"total_equity"`
+	TotalRevenue     interface{} `db:"total_revenue" json:"total_revenue"`
+	TotalExpenses    interface{} `db:"total_expenses" json:"total_expenses"`
+	GeneratedAt      interface{} `db:"generated_at" json:"generated_at"`
+}
+
+func (q *Queries) GetBalanceSummaryByCurrency(ctx context.Context, dollar_1 string) (GetBalanceSummaryByCurrencyRow, error) {
+	row := q.db.QueryRow(ctx, getBalanceSummaryByCurrency, dollar_1)
+	var i GetBalanceSummaryByCurrencyRow
+	err := row.Scan(
+		&i.Currency,
+		&i.TotalAccounts,
+		&i.TotalAssets,
+		&i.TotalLiabilities,
+		&i.TotalEquity,
+		&i.TotalRevenue,
+		&i.TotalExpenses,
+		&i.GeneratedAt,
 	)
 	return i, err
 }

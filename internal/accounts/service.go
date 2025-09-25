@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -274,24 +275,156 @@ func (s *Service) GetAccountBalance(ctx context.Context, tenantSlug string, acco
 	}
 	defer s.db.SetSearchPath(ctx, "public")
 
+	// Get account to ensure it exists
+	_, err := s.db.Queries.GetAccountByID(ctx, accountID)
+	if err != nil {
+		return nil, ErrAccountNotFound
+	}
+
+	// Get balance
 	balance, err := s.db.Queries.GetAccountBalance(ctx, queries.GetAccountBalanceParams{
 		AccountID: accountID,
 		Currency:  currency,
 	})
 	if err != nil {
-		// If balance doesn't exist, return zero balance
-		return &AccountBalanceResponse{
-			Currency: currency,
-			Balance:  decimal.Zero,
-			Version:  0,
-		}, nil
+		// If balance doesn't exist, create it with zero balance
+		balance, err = s.db.Queries.CreateAccountBalance(ctx, queries.CreateAccountBalanceParams{
+			AccountID: accountID,
+			Currency:  currency,
+			Balance:   decimal.Zero,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create or get balance: %w", err)
+		}
 	}
 
 	return &AccountBalanceResponse{
+		AccountID: accountID.String(),
 		Currency:  balance.Currency,
 		Balance:   balance.Balance,
 		Version:   balance.Version,
-		UpdatedAt: balance.UpdatedAt, // Now directly assignable
+		UpdatedAt: balance.UpdatedAt,
+	}, nil
+}
+
+// GetAccountBalanceHistory method
+func (s *Service) GetAccountBalanceHistory(ctx context.Context, tenantSlug string, accountID uuid.UUID, currency string, days int) (*BalanceHistoryResponse, error) {
+	if err := s.db.SetSearchPath(ctx, "tenant_"+tenantSlug); err != nil {
+		return nil, fmt.Errorf("failed to set tenant schema: %w", err)
+	}
+	defer s.db.SetSearchPath(ctx, "public")
+
+	startDate := time.Now().AddDate(0, 0, -days)
+
+	history, err := s.db.Queries.GetAccountBalanceHistory(ctx, queries.GetAccountBalanceHistoryParams{
+		AccountID: accountID,
+		Currency:  currency,
+		UpdatedAt: startDate,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get balance history: %w", err)
+	}
+
+	var entries []BalanceHistoryEntry
+	for _, h := range history {
+		entries = append(entries, BalanceHistoryEntry{
+			Balance:   h.Balance,
+			Version:   h.Version,
+			UpdatedAt: h.UpdatedAt,
+		})
+	}
+
+	return &BalanceHistoryResponse{
+		AccountID: accountID.String(),
+		Currency:  currency,
+		Days:      days,
+		History:   entries,
+	}, nil
+}
+
+// GetBalanceSummary retrieves all accounts summary
+func (s *Service) GetBalanceSummary(ctx context.Context, tenantSlug string, currency string) (*BalanceSummaryResponse, error) {
+	if err := s.db.SetSearchPath(ctx, "tenant_"+tenantSlug); err != nil {
+		return nil, fmt.Errorf("failed to set tenant schema: %w", err)
+	}
+	defer s.db.SetSearchPath(ctx, "public")
+
+	// Create response variables that we'll populate from either query
+	var responseCurrency string
+	var totalAccounts int64
+	var totalAssets, totalLiabilities, totalEquity, totalRevenue, totalExpenses decimal.Decimal
+	var generatedAt time.Time
+	var err error
+
+	if currency != "" {
+		// Get summary for specific currency
+		summary, err := s.db.Queries.GetBalanceSummaryByCurrency(ctx, currency)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get balance summary: %w", err)
+		}
+
+		responseCurrency = summary.Currency
+		totalAccounts = summary.TotalAccounts
+		totalAssets = summary.TotalAssets.(decimal.Decimal)
+		totalLiabilities = summary.TotalLiabilities.(decimal.Decimal)
+		totalEquity = summary.TotalEquity.(decimal.Decimal)
+		totalRevenue = summary.TotalRevenue.(decimal.Decimal)
+		totalExpenses = summary.TotalExpenses.(decimal.Decimal)
+		generatedAt = summary.GeneratedAt.(time.Time)
+	} else {
+		// Get summary for all currencies combined
+		summary, err := s.db.Queries.GetAllBalanceSummary(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get balance summary: %w", err)
+		}
+
+		responseCurrency = summary.Currency
+		totalAccounts = summary.TotalAccounts
+		totalAssets = summary.TotalAssets.(decimal.Decimal)
+		totalLiabilities = summary.TotalLiabilities.(decimal.Decimal)
+		totalEquity = summary.TotalEquity.(decimal.Decimal)
+		totalRevenue = summary.TotalRevenue.(decimal.Decimal)
+		totalExpenses = summary.TotalExpenses.(decimal.Decimal)
+		generatedAt = summary.GeneratedAt.(time.Time)
+	}
+
+	// Get breakdown by account type (with optional currency filter)
+	var currencyFilter pgtype.Text
+	if currency != "" {
+		currencyFilter = pgtype.Text{String: currency, Valid: true}
+	} else {
+		currencyFilter = pgtype.Text{Valid: false} // NULL = all currencies
+	}
+
+	breakdown, err := s.db.Queries.GetBalanceSummaryByAccountType(ctx, currencyFilter.String)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get balance breakdown: %w", err)
+	}
+
+	var breakdownEntries []AccountTypeBreakdown
+	for _, b := range breakdown {
+		breakdownEntries = append(breakdownEntries, AccountTypeBreakdown{
+			AccountType:    string(b.AccountType),
+			Currency:       b.Currency,
+			AccountCount:   int(b.AccountCount),
+			TotalBalance:   b.TotalBalance.(decimal.Decimal),
+			AverageBalance: b.AverageBalance.(decimal.Decimal),
+			MinimumBalance: b.MinimumBalance.(decimal.Decimal),
+			MaximumBalance: b.MaximumBalance.(decimal.Decimal),
+		})
+	}
+
+	return &BalanceSummaryResponse{
+		Currency:         responseCurrency,
+		TotalAccounts:    int(totalAccounts),
+		TotalAssets:      totalAssets,
+		TotalLiabilities: totalLiabilities,
+		TotalEquity:      totalEquity,
+		TotalRevenue:     totalRevenue,
+		TotalExpenses:    totalExpenses,
+		NetWorth:         totalAssets.Sub(totalLiabilities),
+		Breakdown:        breakdownEntries,
+		GeneratedAt:      generatedAt,
 	}, nil
 }
 

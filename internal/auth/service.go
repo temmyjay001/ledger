@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/temmyjay001/ledger-service/internal/config"
 	"github.com/temmyjay001/ledger-service/internal/storage"
@@ -21,43 +21,9 @@ import (
 	"golang.org/x/crypto/argon2"
 )
 
-var (
-	ErrInvalidCredentials = errors.New("Invalid email or password")
-	ErrUserNotFound       = errors.New("user not found")
-	ErrUserLocked         = errors.New("account is locked due to too many failed attempts")
-	ErrInvalidToken       = errors.New("invalid token")
-	ErrTokenExpired       = errors.New("token has expired")
-	ErrEmailAlreadyExists = errors.New("email already exists")
-	ErrInvalidAPIKey      = errors.New("invalid API key")
-)
-
 type Service struct {
 	db     *storage.DB
 	config *config.Config
-}
-
-type Claims struct {
-	UserID   uuid.UUID  `json:"user_id"`
-	Email    string     `json:"email"`
-	TenantID *uuid.UUID `json:"tenant_id,omitempty"`
-	jwt.RegisteredClaims
-}
-
-type APIKeyClaims struct {
-	KeyID      uuid.UUID `json:"key_id"`
-	TenantID   uuid.UUID `json:"tenant_id"`
-	TenantSlug string    `json:"tenant_slug"`
-	Scopes     []string  `json:"scopes"`
-}
-
-type UserResponse struct {
-	ID            uuid.UUID `json:"id"`
-	Email         string    `json:"email"`
-	FirstName     string    `json:"first_name"`
-	LastName      string    `json:"last_name"`
-	EmailVerified bool      `json:"email_verified"`
-	Status        string    `json:"status"`
-	CreatedAt     time.Time `json:"created_at"`
 }
 
 func NewService(db *storage.DB, config *config.Config) *Service {
@@ -187,13 +153,17 @@ func (s *Service) GenerateAPIKey(ctx context.Context, req CreateAPIKeyRequest) (
 		ExpiresAt: expiresAt,
 	})
 	if err != nil {
+		if isConstraintViolation(err, "api_keys_tenant_name_unique") {
+			return nil, ErrAPIKeyNameExists
+		}
+
 		return nil, fmt.Errorf("failed to create API key: %w", err)
 	}
 
 	return &CreateAPIKeyResponse{
 		ID:        apiKeyRecord.ID,
 		Name:      apiKeyRecord.Name,
-		Key:       apiKey, // Only returned once!
+		Key:       apiKey,
 		KeyPrefix: keyPrefix,
 		Scopes:    apiKeyRecord.Scopes,
 		ExpiresAt: req.ExpiresAt,
@@ -296,4 +266,13 @@ func (s *Service) userToResponse(user queries.User) *UserResponse {
 		Status:        string(user.Status.UserStatusEnum),
 		CreatedAt:     user.CreatedAt,
 	}
+}
+
+// Helper function to check for specific constraint violation
+func isConstraintViolation(err error, constraintName string) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23505" && strings.Contains(pgErr.ConstraintName, constraintName)
+	}
+	return false
 }

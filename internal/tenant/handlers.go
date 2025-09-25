@@ -159,6 +159,8 @@ func (h *Handlers) CreateAPIKeyHandler(w http.ResponseWriter, r *http.Request) {
 			api.WriteForbiddenResponse(w, "insufficient permissions")
 		case ErrInvalidScopes:
 			api.WriteBadRequestResponse(w, "invalid scopes provided")
+		case ErrAPIKeyNameExists:
+			api.WriteConflictResponse(w, "API key name already exists for this tenant")
 		default:
 			api.WriteInternalErrorResponse(w, "failed to create API key")
 		}

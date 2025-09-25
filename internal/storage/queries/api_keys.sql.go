@@ -13,6 +13,25 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const aPIKeyNameExist = `-- name: APIKeyNameExist :one
+SELECT ak.name, t.id as tenant_id
+FROM api_keys ak
+JOIN tenants t ON ak.tenant_id = t.id
+WHERE ak.name = $1
+`
+
+type APIKeyNameExistRow struct {
+	Name     string    `db:"name" json:"name"`
+	TenantID uuid.UUID `db:"tenant_id" json:"tenant_id"`
+}
+
+func (q *Queries) APIKeyNameExist(ctx context.Context, name string) (APIKeyNameExistRow, error) {
+	row := q.db.QueryRow(ctx, aPIKeyNameExist, name)
+	var i APIKeyNameExistRow
+	err := row.Scan(&i.Name, &i.TenantID)
+	return i, err
+}
+
 const createAPIKey = `-- name: CreateAPIKey :one
 
 INSERT INTO api_keys (

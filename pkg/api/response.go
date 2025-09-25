@@ -17,10 +17,10 @@ type Response struct {
 func WriteJSONResponse(w http.ResponseWriter, statusCode int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	
+
 	if err := json.NewEncoder(w).Encode(data); err != nil {
 		// If we can't encode the response, write a basic error
-		http.Error(w, `{"success":false,"error":"Internal server error"}`, 
+		http.Error(w, `{"success":false,"error":"Internal server error"}`,
 			http.StatusInternalServerError)
 	}
 }
@@ -69,25 +69,41 @@ func WriteInternalErrorResponse(w http.ResponseWriter, message string) {
 
 func WriteValidationErrorResponse(w http.ResponseWriter, err error) {
 	validationErrors := make(map[string]string)
-	
+
 	if validationErrs, ok := err.(validator.ValidationErrors); ok {
 		for _, fieldError := range validationErrs {
 			field := fieldError.Field()
 			tag := fieldError.Tag()
-			
+			param := fieldError.Param()
+
 			switch tag {
 			case "required":
 				validationErrors[field] = field + " is required"
 			case "email":
 				validationErrors[field] = field + " must be a valid email"
 			case "min":
-				validationErrors[field] = field + " must be at least " + fieldError.Param() + " characters"
+				validationErrors[field] = field + " must be at least " + param + " characters"
 			case "max":
-				validationErrors[field] = field + " must be at most " + fieldError.Param() + " characters"
+				validationErrors[field] = field + " must be at most " + param + " characters"
 			case "len":
-				validationErrors[field] = field + " must be exactly " + fieldError.Param() + " characters"
+				validationErrors[field] = field + " must be exactly " + param + " characters"
 			case "oneof":
-				validationErrors[field] = field + " must be one of: " + fieldError.Param()
+				validationErrors[field] = field + " must be one of: " + param
+
+			// ---- decimal-specific validations ----
+			case "dgt":
+				validationErrors[field] = field + " must be greater than " + param
+			case "dgte":
+				validationErrors[field] = field + " must be greater than or equal to " + param
+			case "dlt":
+				validationErrors[field] = field + " must be less than " + param
+			case "dlte":
+				validationErrors[field] = field + " must be less than or equal to " + param
+			case "deq":
+				validationErrors[field] = field + " must equal " + param
+			case "dneq":
+				validationErrors[field] = field + " must not equal " + param
+
 			default:
 				validationErrors[field] = field + " is invalid"
 			}
@@ -99,6 +115,6 @@ func WriteValidationErrorResponse(w http.ResponseWriter, err error) {
 		Error:   "validation failed",
 		Data:    map[string]interface{}{"validation_errors": validationErrors},
 	}
-	
+
 	WriteJSONResponse(w, http.StatusBadRequest, response)
 }

@@ -239,3 +239,112 @@ SELECT
     COUNT(DISTINCT currency) as currencies_count
 FROM accounts
 WHERE is_active = true;
+
+-- name: GetAccountBalanceHistory :many
+SELECT 
+    ab.account_id,
+    ab.currency,
+    ab.balance,
+    ab.version,
+    ab.updated_at
+FROM account_balances ab
+WHERE ab.account_id = $1 
+AND ab.currency = $2
+AND ab.updated_at >= $3
+ORDER BY ab.updated_at DESC;
+
+-- name: GetBalanceSummaryByCurrency :one
+SELECT 
+    $1::text as currency,
+    COUNT(DISTINCT a.id)::bigint as total_accounts,
+    (
+        SELECT COALESCE(SUM(ab2.balance), 0::numeric(20,4))
+        FROM account_balances ab2
+        JOIN accounts a2 ON ab2.account_id = a2.id
+        WHERE ab2.currency = $1 AND a2.account_type = 'asset' AND a2.is_active = true
+    ) as total_assets,
+    (
+        SELECT COALESCE(SUM(ab2.balance), 0::numeric(20,4))
+        FROM account_balances ab2
+        JOIN accounts a2 ON ab2.account_id = a2.id
+        WHERE ab2.currency = $1 AND a2.account_type = 'liability' AND a2.is_active = true
+    ) as total_liabilities,
+    (
+        SELECT COALESCE(SUM(ab2.balance), 0::numeric(20,4))
+        FROM account_balances ab2
+        JOIN accounts a2 ON ab2.account_id = a2.id
+        WHERE ab2.currency = $1 AND a2.account_type = 'equity' AND a2.is_active = true
+    ) as total_equity,
+    (
+        SELECT COALESCE(SUM(ab2.balance), 0::numeric(20,4))
+        FROM account_balances ab2
+        JOIN accounts a2 ON ab2.account_id = a2.id
+        WHERE ab2.currency = $1 AND a2.account_type = 'revenue' AND a2.is_active = true
+    ) as total_revenue,
+    (
+        SELECT COALESCE(SUM(ab2.balance), 0::numeric(20,4))
+        FROM account_balances ab2
+        JOIN accounts a2 ON ab2.account_id = a2.id
+        WHERE ab2.currency = $1 AND a2.account_type = 'expense' AND a2.is_active = true
+    ) as total_expenses,
+    NOW() as generated_at
+FROM account_balances ab
+JOIN accounts a ON ab.account_id = a.id
+WHERE ab.currency = $1 AND a.is_active = true
+LIMIT 1;
+
+-- name: GetAllBalanceSummary :one
+SELECT 
+    'ALL'::text as currency,
+    COUNT(DISTINCT a.id)::bigint as total_accounts,
+    (
+        SELECT COALESCE(SUM(ab2.balance), 0::numeric(20,4))
+        FROM account_balances ab2
+        JOIN accounts a2 ON ab2.account_id = a2.id
+        WHERE a2.account_type = 'asset' AND a2.is_active = true
+    ) as total_assets,
+    (
+        SELECT COALESCE(SUM(ab2.balance), 0::numeric(20,4))
+        FROM account_balances ab2
+        JOIN accounts a2 ON ab2.account_id = a2.id
+        WHERE a2.account_type = 'liability' AND a2.is_active = true
+    ) as total_liabilities,
+    (
+        SELECT COALESCE(SUM(ab2.balance), 0::numeric(20,4))
+        FROM account_balances ab2
+        JOIN accounts a2 ON ab2.account_id = a2.id
+        WHERE a2.account_type = 'equity' AND a2.is_active = true
+    ) as total_equity,
+    (
+        SELECT COALESCE(SUM(ab2.balance), 0::numeric(20,4))
+        FROM account_balances ab2
+        JOIN accounts a2 ON ab2.account_id = a2.id
+        WHERE a2.account_type = 'revenue' AND a2.is_active = true
+    ) as total_revenue,
+    (
+        SELECT COALESCE(SUM(ab2.balance), 0::numeric(20,4))
+        FROM account_balances ab2
+        JOIN accounts a2 ON ab2.account_id = a2.id
+        WHERE a2.account_type = 'expense' AND a2.is_active = true
+    ) as total_expenses,
+    NOW() as generated_at
+FROM account_balances ab
+JOIN accounts a ON ab.account_id = a.id
+WHERE a.is_active = true
+LIMIT 1;
+
+-- name: GetBalanceSummaryByAccountType :many
+SELECT 
+    a.account_type,
+    ab.currency,
+    COUNT(*)::bigint as account_count,
+    COALESCE(SUM(ab.balance), 0::numeric(20,4)) as total_balance,
+    COALESCE(AVG(ab.balance), 0::numeric(20,4)) as average_balance,
+    COALESCE(MIN(ab.balance), 0::numeric(20,4)) as minimum_balance,
+    COALESCE(MAX(ab.balance), 0::numeric(20,4)) as maximum_balance
+FROM account_balances ab
+JOIN accounts a ON ab.account_id = a.id
+WHERE a.is_active = true
+  AND ($1::text IS NULL OR ab.currency = $1)
+GROUP BY a.account_type, ab.currency
+ORDER BY a.account_type, ab.currency;
