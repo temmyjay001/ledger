@@ -10,20 +10,28 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/shopspring/decimal"
+	"github.com/temmyjay001/ledger-service/internal/events"
 	"github.com/temmyjay001/ledger-service/internal/storage"
 	"github.com/temmyjay001/ledger-service/internal/storage/queries"
 )
 
 type Service struct {
-	db *storage.DB
+	db           *storage.DB
+	eventService *events.Service
 }
 
-func NewService(db *storage.DB) *Service {
-	return &Service{db: db}
+func NewService(db *storage.DB, eventService *events.Service) *Service {
+	return &Service{db: db, eventService: eventService}
 }
 
 // CreateSimpleTransaction creates a single-entry transaction
 func (s *Service) CreateSimpleTransaction(ctx context.Context, tenantSlug string, req CreateTransactionRequest) (*TransactionResponse, error) {
+	// Get tenant ID for events
+	tenant, err := s.db.Queries.GetTenantBySlug(ctx, tenantSlug)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get tenant: %w", err)
+	}
+
 	// Set tenant schema
 	if err := s.db.SetSearchPath(ctx, "tenant_"+tenantSlug); err != nil {
 		return nil, fmt.Errorf("failed to set tenant schema: %w", err)
@@ -70,7 +78,7 @@ func (s *Service) CreateSimpleTransaction(ctx context.Context, tenantSlug string
 	}
 
 	// Create transaction line
-	_, err = qtx.CreateTransactionLine(ctx, queries.CreateTransactionLineParams{
+	line, err := qtx.CreateTransactionLine(ctx, queries.CreateTransactionLineParams{
 		TransactionID: transaction.ID,
 		AccountID:     account.ID,
 		Amount:        req.Amount,
@@ -82,10 +90,23 @@ func (s *Service) CreateSimpleTransaction(ctx context.Context, tenantSlug string
 		return nil, fmt.Errorf("failed to create transaction line: %w", err)
 	}
 
+	// Get old balance for event
+	oldBalance := decimal.Zero
+	balance, err := qtx.GetAccountBalanceForUpdate(ctx, queries.GetAccountBalanceForUpdateParams{
+		AccountID: account.ID,
+		Currency:  req.Currency,
+	})
+	if err == nil {
+		oldBalance = balance.Balance
+	}
+
 	// Update account balance with optimistic locking
 	if err := s.updateAccountBalance(ctx, qtx, account, req.Amount, req.Side, req.Currency); err != nil {
 		return nil, fmt.Errorf("failed to update balance: %w", err)
 	}
+
+	// Get new balance for event
+	newBalance := s.calculateNewBalance(oldBalance, req.Amount, req.Side, account.AccountType)
 
 	// Mark transaction as posted
 	transaction, err = qtx.UpdateTransactionStatus(ctx, queries.UpdateTransactionStatusParams{
@@ -94,6 +115,24 @@ func (s *Service) CreateSimpleTransaction(ctx context.Context, tenantSlug string
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to post transaction: %w", err)
+	}
+
+	// Create account map for event publishing
+	accounts := map[uuid.UUID]queries.Account{
+		account.ID: account,
+	}
+
+	// Create lines slice for event publishing
+	lines := []queries.TransactionLine{line}
+
+	// Publish transaction posted event
+	if err := s.eventService.PublishTransactionPosted(ctx, qtx, tenant.ID, transaction, lines, accounts); err != nil {
+		return nil, fmt.Errorf("failed to publish transaction event: %w", err)
+	}
+
+	// Publish balance updated event
+	if err := s.eventService.PublishBalanceUpdated(ctx, qtx, tenant.ID, account, oldBalance, newBalance, transaction.ID, req.Currency, 1); err != nil {
+		return nil, fmt.Errorf("failed to publish balance event: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -106,6 +145,12 @@ func (s *Service) CreateSimpleTransaction(ctx context.Context, tenantSlug string
 
 // CreateDoubleEntryTransaction creates a double-entry transaction
 func (s *Service) CreateDoubleEntryTransaction(ctx context.Context, tenantSlug string, req CreateDoubleEntryRequest) (*TransactionResponse, error) {
+	// Get tenant ID for events
+	tenant, err := s.db.Queries.GetTenantBySlug(ctx, tenantSlug)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get tenant: %w", err)
+	}
+
 	// Set tenant schema
 	if err := s.db.SetSearchPath(ctx, "tenant_"+tenantSlug); err != nil {
 		return nil, fmt.Errorf("failed to set tenant schema: %w", err)
@@ -139,13 +184,15 @@ func (s *Service) CreateDoubleEntryTransaction(ctx context.Context, tenantSlug s
 	qtx := s.db.Queries.WithTx(tx)
 
 	// Validate all accounts exist
-	accountMap := make(map[string]queries.Account)
+	accountMap := make(map[uuid.UUID]queries.Account)
+	accountCodeMap := make(map[string]queries.Account)
 	for _, entry := range req.Entries {
 		account, err := qtx.GetAccountByCode(ctx, entry.AccountCode)
 		if err != nil {
 			return nil, fmt.Errorf("account %s not found: %w", entry.AccountCode, err)
 		}
-		accountMap[entry.AccountCode] = account
+		accountMap[account.ID] = account
+		accountCodeMap[entry.AccountCode] = account
 	}
 
 	// Create transaction record
@@ -164,12 +211,29 @@ func (s *Service) CreateDoubleEntryTransaction(ctx context.Context, tenantSlug s
 		return nil, fmt.Errorf("failed to create transaction: %w", err)
 	}
 
-	// Create transaction lines and update balances
+	// Create transaction lines and collect balance changes
+	var lines []queries.TransactionLine
+	balanceChanges := make(map[uuid.UUID]struct {
+		oldBalance decimal.Decimal
+		newBalance decimal.Decimal
+		currency   string
+	})
+
 	for _, entry := range req.Entries {
-		account := accountMap[entry.AccountCode]
+		account := accountCodeMap[entry.AccountCode]
+
+		// Get old balance for event tracking
+		oldBalance := decimal.Zero
+		balance, err := qtx.GetAccountBalanceForUpdate(ctx, queries.GetAccountBalanceForUpdateParams{
+			AccountID: account.ID,
+			Currency:  entry.Currency,
+		})
+		if err == nil {
+			oldBalance = balance.Balance
+		}
 
 		// Create transaction line
-		_, err = qtx.CreateTransactionLine(ctx, queries.CreateTransactionLineParams{
+		line, err := qtx.CreateTransactionLine(ctx, queries.CreateTransactionLineParams{
 			TransactionID: transaction.ID,
 			AccountID:     account.ID,
 			Amount:        entry.Amount,
@@ -180,11 +244,20 @@ func (s *Service) CreateDoubleEntryTransaction(ctx context.Context, tenantSlug s
 		if err != nil {
 			return nil, fmt.Errorf("failed to create transaction line for account %s: %w", entry.AccountCode, err)
 		}
+		lines = append(lines, line)
 
 		// Update account balance
 		if err := s.updateAccountBalance(ctx, qtx, account, entry.Amount, entry.Side, entry.Currency); err != nil {
 			return nil, fmt.Errorf("failed to update balance for account %s: %w", entry.AccountCode, err)
 		}
+
+		// Calculate new balance for event
+		newBalance := s.calculateNewBalance(oldBalance, entry.Amount, entry.Side, account.AccountType)
+		balanceChanges[account.ID] = struct {
+			oldBalance decimal.Decimal
+			newBalance decimal.Decimal
+			currency   string
+		}{oldBalance, newBalance, entry.Currency}
 	}
 
 	// Mark transaction as posted
@@ -194,6 +267,19 @@ func (s *Service) CreateDoubleEntryTransaction(ctx context.Context, tenantSlug s
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to post transaction: %w", err)
+	}
+
+	// Publish transaction posted event
+	if err := s.eventService.PublishTransactionPosted(ctx, qtx, tenant.ID, transaction, lines, accountMap); err != nil {
+		return nil, fmt.Errorf("failed to publish transaction event: %w", err)
+	}
+
+	// Publish balance updated events for each affected account
+	for accountID, change := range balanceChanges {
+		account := accountMap[accountID]
+		if err := s.eventService.PublishBalanceUpdated(ctx, qtx, tenant.ID, account, change.oldBalance, change.newBalance, transaction.ID, change.currency, 1); err != nil {
+			return nil, fmt.Errorf("failed to publish balance event for account %s: %w", account.Code, err)
+		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {

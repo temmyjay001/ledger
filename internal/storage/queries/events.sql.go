@@ -60,6 +60,34 @@ func (q *Queries) CreateEvent(ctx context.Context, arg CreateEventParams) (Event
 	return i, err
 }
 
+const getEventByID = `-- name: GetEventByID :one
+SELECT event_id, tenant_id, aggregate_id, aggregate_type, event_type, event_version, event_data, metadata, created_at, sequence_number FROM events 
+WHERE tenant_id = $1 AND event_id = $2 LIMIT 1
+`
+
+type GetEventByIDParams struct {
+	TenantID uuid.UUID `db:"tenant_id" json:"tenant_id"`
+	EventID  uuid.UUID `db:"event_id" json:"event_id"`
+}
+
+func (q *Queries) GetEventByID(ctx context.Context, arg GetEventByIDParams) (Event, error) {
+	row := q.db.QueryRow(ctx, getEventByID, arg.TenantID, arg.EventID)
+	var i Event
+	err := row.Scan(
+		&i.EventID,
+		&i.TenantID,
+		&i.AggregateID,
+		&i.AggregateType,
+		&i.EventType,
+		&i.EventVersion,
+		&i.EventData,
+		&i.Metadata,
+		&i.CreatedAt,
+		&i.SequenceNumber,
+	)
+	return i, err
+}
+
 const getEventsAfterSequence = `-- name: GetEventsAfterSequence :many
 SELECT event_id, tenant_id, aggregate_id, aggregate_type, event_type, event_version, event_data, metadata, created_at, sequence_number FROM events 
 WHERE sequence_number > $1

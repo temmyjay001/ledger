@@ -38,3 +38,20 @@ SET http_status_code = $2,
         ELSE failed_at
     END
 WHERE id = $1;
+
+-- name: GetWebhookDeliveriesByTenant :many
+SELECT * FROM webhook_deliveries
+WHERE tenant_id = $1
+ORDER BY created_at DESC
+LIMIT $2;
+
+-- name: GetWebhookDeliveryByID :one
+SELECT * FROM webhook_deliveries
+WHERE id = $1 AND tenant_id = $2
+LIMIT 1;
+
+-- name: ResetWebhookDeliveryForRetry :exec
+UPDATE webhook_deliveries
+SET next_retry_at = NOW(),
+    failed_at = NULL
+WHERE id = $1;

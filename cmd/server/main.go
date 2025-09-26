@@ -41,7 +41,14 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	//graceful shutdown
+	// Start background webhook worker
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		log.Println("Starting webhook delivery worker...")
+		srv.StartWebhookWorker(ctx)
+	}()
+
+	// Start Http server
 	go func() {
 		log.Printf("Server starting on %s:%s", cfg.Host, cfg.Port)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -56,11 +63,13 @@ func main() {
 
 	log.Println("Server shutting down...")
 
+	cancel()
+
 	// Graceful shutdown with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := httpServer.Shutdown(ctx); err != nil {
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		log.Fatal("Server forced to shutdown:", err)
 	}
 	log.Println("Server exited")

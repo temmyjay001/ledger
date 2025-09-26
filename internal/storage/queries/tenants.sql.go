@@ -7,6 +7,7 @@ package queries
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -138,4 +139,34 @@ func (q *Queries) ListTenantsByUser(ctx context.Context, userID uuid.UUID) ([]Te
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateTenantMetadata = `-- name: UpdateTenantMetadata :one
+UPDATE tenants 
+SET metadata = $2, updated_at = NOW()
+WHERE id = $1
+RETURNING id, name, slug, business_type, country_code, base_currency, timezone, metadata, created_at, updated_at
+`
+
+type UpdateTenantMetadataParams struct {
+	ID       uuid.UUID       `db:"id" json:"id"`
+	Metadata json.RawMessage `db:"metadata" json:"metadata"`
+}
+
+func (q *Queries) UpdateTenantMetadata(ctx context.Context, arg UpdateTenantMetadataParams) (Tenant, error) {
+	row := q.db.QueryRow(ctx, updateTenantMetadata, arg.ID, arg.Metadata)
+	var i Tenant
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.BusinessType,
+		&i.CountryCode,
+		&i.BaseCurrency,
+		&i.Timezone,
+		&i.Metadata,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }

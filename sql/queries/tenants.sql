@@ -20,3 +20,9 @@ SELECT t.* FROM tenants t
 JOIN tenant_users tu ON t.id = tu.tenant_id
 WHERE tu.user_id = $1
 ORDER BY t.created_at DESC;
+
+-- name: UpdateTenantMetadata :one
+UPDATE tenants 
+SET metadata = $2, updated_at = NOW()
+WHERE id = $1
+RETURNING *;

@@ -98,6 +98,94 @@ func (q *Queries) GetPendingWebhookDeliveries(ctx context.Context, limit int32) 
 	return items, nil
 }
 
+const getWebhookDeliveriesByTenant = `-- name: GetWebhookDeliveriesByTenant :many
+SELECT id, tenant_id, event_id, webhook_url, http_status_code, response_body, attempts, max_attempts, next_retry_at, delivered_at, failed_at, created_at FROM webhook_deliveries
+WHERE tenant_id = $1
+ORDER BY created_at DESC
+LIMIT $2
+`
+
+type GetWebhookDeliveriesByTenantParams struct {
+	TenantID uuid.UUID `db:"tenant_id" json:"tenant_id"`
+	Limit    int32     `db:"limit" json:"limit"`
+}
+
+func (q *Queries) GetWebhookDeliveriesByTenant(ctx context.Context, arg GetWebhookDeliveriesByTenantParams) ([]WebhookDelivery, error) {
+	rows, err := q.db.Query(ctx, getWebhookDeliveriesByTenant, arg.TenantID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []WebhookDelivery{}
+	for rows.Next() {
+		var i WebhookDelivery
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.EventID,
+			&i.WebhookUrl,
+			&i.HttpStatusCode,
+			&i.ResponseBody,
+			&i.Attempts,
+			&i.MaxAttempts,
+			&i.NextRetryAt,
+			&i.DeliveredAt,
+			&i.FailedAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getWebhookDeliveryByID = `-- name: GetWebhookDeliveryByID :one
+SELECT id, tenant_id, event_id, webhook_url, http_status_code, response_body, attempts, max_attempts, next_retry_at, delivered_at, failed_at, created_at FROM webhook_deliveries
+WHERE id = $1 AND tenant_id = $2
+LIMIT 1
+`
+
+type GetWebhookDeliveryByIDParams struct {
+	ID       uuid.UUID `db:"id" json:"id"`
+	TenantID uuid.UUID `db:"tenant_id" json:"tenant_id"`
+}
+
+func (q *Queries) GetWebhookDeliveryByID(ctx context.Context, arg GetWebhookDeliveryByIDParams) (WebhookDelivery, error) {
+	row := q.db.QueryRow(ctx, getWebhookDeliveryByID, arg.ID, arg.TenantID)
+	var i WebhookDelivery
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.EventID,
+		&i.WebhookUrl,
+		&i.HttpStatusCode,
+		&i.ResponseBody,
+		&i.Attempts,
+		&i.MaxAttempts,
+		&i.NextRetryAt,
+		&i.DeliveredAt,
+		&i.FailedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const resetWebhookDeliveryForRetry = `-- name: ResetWebhookDeliveryForRetry :exec
+UPDATE webhook_deliveries
+SET next_retry_at = NOW(),
+    failed_at = NULL
+WHERE id = $1
+`
+
+func (q *Queries) ResetWebhookDeliveryForRetry(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, resetWebhookDeliveryForRetry, id)
+	return err
+}
+
 const updateWebhookDeliveryFailure = `-- name: UpdateWebhookDeliveryFailure :exec
 UPDATE webhook_deliveries 
 SET http_status_code = $2,

@@ -24,3 +24,7 @@ SELECT * FROM events
 WHERE sequence_number > $1
 ORDER BY sequence_number ASC
 LIMIT $2;
+
+-- name: GetEventByID :one
+SELECT * FROM events 
+WHERE tenant_id = $1 AND event_id = $2 LIMIT 1;

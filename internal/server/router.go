@@ -87,8 +87,13 @@ func (s *Server) Router() http.Handler {
 			r.With(s.authMiddleware.RequireScopes("reports:read")).Get("/reports/balances", s.getBalanceReportHandler)
 
 			// Webhook management
-			r.With(s.authMiddleware.RequireScopes("webhooks:manage")).Post("/webhooks", s.createWebhookHandler)
-			r.With(s.authMiddleware.RequireScopes("webhooks:manage")).Get("/webhooks", s.listWebhooksHandler)
+			r.Route("/webhooks", func(r chi.Router) {
+				r.With(s.authMiddleware.RequireScopes("webhooks:manage")).Post("/", s.webhookHandlers.ConfigureWebhookHandler)
+				r.With(s.authMiddleware.RequireScopes("webhooks:read")).Get("/", s.webhookHandlers.ListWebhookDeliveriesHandler)
+				r.With(s.authMiddleware.RequireScopes("webhooks:read")).Get("/{deliveryId}", s.webhookHandlers.GetWebhookDeliveryHandler)
+				r.With(s.authMiddleware.RequireScopes("webhooks:manage")).Post("/{deliveryId}/retry", s.webhookHandlers.RetryWebhookDeliveryHandler)
+				r.With(s.authMiddleware.RequireScopes("webhooks:manage")).Post("/test", s.webhookHandlers.TestWebhookHandler)
+			})
 		})
 	})
 

@@ -52,6 +52,7 @@ type Querier interface {
 	GetAllBalanceSummary(ctx context.Context) (GetAllBalanceSummaryRow, error)
 	GetBalanceSummaryByAccountType(ctx context.Context, dollar_1 string) ([]GetBalanceSummaryByAccountTypeRow, error)
 	GetBalanceSummaryByCurrency(ctx context.Context, dollar_1 string) (GetBalanceSummaryByCurrencyRow, error)
+	GetEventByID(ctx context.Context, arg GetEventByIDParams) (Event, error)
 	GetEventsAfterSequence(ctx context.Context, arg GetEventsAfterSequenceParams) ([]Event, error)
 	GetEventsByAggregate(ctx context.Context, arg GetEventsByAggregateParams) ([]Event, error)
 	GetEventsByType(ctx context.Context, arg GetEventsByTypeParams) ([]Event, error)
@@ -65,6 +66,8 @@ type Querier interface {
 	GetTransactionWithLines(ctx context.Context, id uuid.UUID) (GetTransactionWithLinesRow, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
+	GetWebhookDeliveriesByTenant(ctx context.Context, arg GetWebhookDeliveriesByTenantParams) ([]WebhookDelivery, error)
+	GetWebhookDeliveryByID(ctx context.Context, arg GetWebhookDeliveryByIDParams) (WebhookDelivery, error)
 	IncrementFailedLoginAttempts(ctx context.Context, id uuid.UUID) error
 	ListAccountBalancesByCurrency(ctx context.Context, currency string) ([]ListAccountBalancesByCurrencyRow, error)
 	ListAccounts(ctx context.Context) ([]Account, error)
@@ -81,10 +84,12 @@ type Querier interface {
 	ListTransactionsByAccountAndDateRange(ctx context.Context, arg ListTransactionsByAccountAndDateRangeParams) ([]Transaction, error)
 	ListTransactionsByDateRange(ctx context.Context, arg ListTransactionsByDateRangeParams) ([]Transaction, error)
 	RemoveUserFromTenant(ctx context.Context, arg RemoveUserFromTenantParams) error
+	ResetWebhookDeliveryForRetry(ctx context.Context, id uuid.UUID) error
 	SearchAccounts(ctx context.Context, arg SearchAccountsParams) ([]Account, error)
 	UpdateAPIKeyLastUsed(ctx context.Context, id uuid.UUID) error
 	UpdateAccount(ctx context.Context, arg UpdateAccountParams) (Account, error)
 	UpdateAccountBalance(ctx context.Context, arg UpdateAccountBalanceParams) (AccountBalance, error)
+	UpdateTenantMetadata(ctx context.Context, arg UpdateTenantMetadataParams) (Tenant, error)
 	UpdateTenantUserRole(ctx context.Context, arg UpdateTenantUserRoleParams) error
 	UpdateTransactionStatus(ctx context.Context, arg UpdateTransactionStatusParams) (Transaction, error)
 	UpdateUserLastLogin(ctx context.Context, id uuid.UUID) error
