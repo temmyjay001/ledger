@@ -21,7 +21,7 @@ WHERE id = $1;
 UPDATE transactions
 SET 
     status = $2,
-    posted_at = CASE WHEN $2 = 'posted' THEN NOW() ELSE posted_at END
+    posted_at = CASE WHEN $2 = 'posted' ::public.transaction_status_enum THEN NOW() ELSE posted_at END
 WHERE id = $1
 RETURNING *;
 

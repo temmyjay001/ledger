@@ -83,7 +83,7 @@ func (s *Service) CreateSimpleTransaction(ctx context.Context, tenantSlug string
 	}
 
 	// Update account balance with optimistic locking
-	if err := s.updateAccountBalance(ctx, qtx, account.ID, req.Amount, req.Side, req.Currency); err != nil {
+	if err := s.updateAccountBalance(ctx, qtx, account, req.Amount, req.Side, req.Currency); err != nil {
 		return nil, fmt.Errorf("failed to update balance: %w", err)
 	}
 
@@ -182,7 +182,7 @@ func (s *Service) CreateDoubleEntryTransaction(ctx context.Context, tenantSlug s
 		}
 
 		// Update account balance
-		if err := s.updateAccountBalance(ctx, qtx, account.ID, entry.Amount, entry.Side, entry.Currency); err != nil {
+		if err := s.updateAccountBalance(ctx, qtx, account, entry.Amount, entry.Side, entry.Currency); err != nil {
 			return nil, fmt.Errorf("failed to update balance for account %s: %w", entry.AccountCode, err)
 		}
 	}
@@ -324,16 +324,16 @@ func (s *Service) ListTransactions(ctx context.Context, tenantSlug string, req L
 }
 
 // Helper functions
-func (s *Service) updateAccountBalance(ctx context.Context, qtx *queries.Queries, accountID uuid.UUID, amount decimal.Decimal, side, currency string) error {
+func (s *Service) updateAccountBalance(ctx context.Context, qtx *queries.Queries, account queries.Account, amount decimal.Decimal, side, currency string) error {
 	// Get current balance with version for optimistic locking
 	balance, err := qtx.GetAccountBalanceForUpdate(ctx, queries.GetAccountBalanceForUpdateParams{
-		AccountID: accountID,
+		AccountID: account.ID,
 		Currency:  currency,
 	})
 	if err != nil {
 		// Create balance if it doesn't exist
 		_, err = qtx.CreateAccountBalance(ctx, queries.CreateAccountBalanceParams{
-			AccountID: accountID,
+			AccountID: account.ID,
 			Currency:  currency,
 			Balance:   decimal.Zero,
 		})
@@ -343,7 +343,7 @@ func (s *Service) updateAccountBalance(ctx context.Context, qtx *queries.Queries
 
 		// Retry getting balance
 		balance, err = qtx.GetAccountBalanceForUpdate(ctx, queries.GetAccountBalanceForUpdateParams{
-			AccountID: accountID,
+			AccountID: account.ID,
 			Currency:  currency,
 		})
 		if err != nil {
@@ -351,17 +351,12 @@ func (s *Service) updateAccountBalance(ctx context.Context, qtx *queries.Queries
 		}
 	}
 
-	// Calculate new balance based on debit/credit
-	var newBalance decimal.Decimal
-	if side == "debit" {
-		newBalance = balance.Balance.Add(amount)
-	} else {
-		newBalance = balance.Balance.Sub(amount)
-	}
+	// Calculate new balance using the correct accounting logic
+	newBalance := s.calculateNewBalance(balance.Balance, amount, side, account.AccountType)
 
 	// Update with optimistic locking
 	_, err = qtx.UpdateAccountBalance(ctx, queries.UpdateAccountBalanceParams{
-		AccountID: accountID,
+		AccountID: account.ID,
 		Currency:  currency,
 		Balance:   newBalance,
 		Version:   balance.Version,
@@ -371,6 +366,35 @@ func (s *Service) updateAccountBalance(ctx context.Context, qtx *queries.Queries
 	}
 
 	return nil
+}
+
+// Calculate new balance based on account type and transaction side
+func (s *Service) calculateNewBalance(currentBalance, amount decimal.Decimal, side string, accountType queries.AccountTypeEnum) decimal.Decimal {
+	switch accountType {
+	case queries.AccountTypeEnumAsset, queries.AccountTypeEnumExpense:
+		// Assets and Expenses: Debit increases, Credit decreases
+		if side == "debit" {
+			return currentBalance.Add(amount)
+		} else { // credit
+			return currentBalance.Sub(amount)
+		}
+
+	case queries.AccountTypeEnumLiability, queries.AccountTypeEnumEquity, queries.AccountTypeEnumRevenue:
+		// Liabilities, Equity, Revenue: Credit increases, Debit decreases
+		if side == "credit" {
+			return currentBalance.Add(amount)
+		} else { // debit
+			return currentBalance.Sub(amount)
+		}
+
+	default:
+		// Fallback - shouldn't happen with proper validation
+		if side == "debit" {
+			return currentBalance.Add(amount)
+		} else {
+			return currentBalance.Sub(amount)
+		}
+	}
 }
 
 func (s *Service) validateDoubleEntryBalance(entries []TransactionLineEntry) error {

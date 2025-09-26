@@ -121,10 +121,9 @@ WHERE id = $1;
 INSERT INTO account_balances (
     account_id,
     currency,
-    balance,
-    version
+    balance
 ) VALUES (
-    $1, $2, $3, 1
+    $1, $2, $3
 ) RETURNING *;
 
 -- name: GetAccountBalance :one

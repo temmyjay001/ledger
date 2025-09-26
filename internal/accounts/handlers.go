@@ -405,7 +405,7 @@ func (h *Handlers) GetAccountBalanceHistoryHandler(w http.ResponseWriter, r *htt
 	api.WriteSuccessResponse(w, http.StatusOK, history)
 }
 
-// GET /api/v1/tenants/{slug}/accounts/{accountId}/balance/summary 
+// GET /api/v1/tenants/{slug}/accounts/{accountId}/balance/summary
 func (h *Handlers) GetBalanceSummaryHandler(w http.ResponseWriter, r *http.Request) {
 	tenantSlug := chi.URLParam(r, "tenantSlug")
 	currency := r.URL.Query().Get("currency")

@@ -70,10 +70,9 @@ const createAccountBalance = `-- name: CreateAccountBalance :one
 INSERT INTO account_balances (
     account_id,
     currency,
-    balance,
-    version
+    balance
 ) VALUES (
-    $1, $2, $3, 1
+    $1, $2, $3
 ) RETURNING account_id, currency, balance, version, updated_at
 `
 
