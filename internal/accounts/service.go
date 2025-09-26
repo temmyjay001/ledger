@@ -365,11 +365,11 @@ func (s *Service) GetBalanceSummary(ctx context.Context, tenantSlug string, curr
 
 		responseCurrency = summary.Currency
 		totalAccounts = summary.TotalAccounts
-		totalAssets = summary.TotalAssets.(decimal.Decimal)
-		totalLiabilities = summary.TotalLiabilities.(decimal.Decimal)
-		totalEquity = summary.TotalEquity.(decimal.Decimal)
-		totalRevenue = summary.TotalRevenue.(decimal.Decimal)
-		totalExpenses = summary.TotalExpenses.(decimal.Decimal)
+		totalAssets = convertNumeric(summary.TotalAssets)
+		totalLiabilities = convertNumeric(summary.TotalLiabilities)
+		totalEquity = convertNumeric(summary.TotalEquity)
+		totalRevenue = convertNumeric(summary.TotalRevenue)
+		totalExpenses = convertNumeric(summary.TotalExpenses)
 		generatedAt = summary.GeneratedAt.(time.Time)
 	} else {
 		// Get summary for all currencies combined
@@ -380,11 +380,11 @@ func (s *Service) GetBalanceSummary(ctx context.Context, tenantSlug string, curr
 
 		responseCurrency = summary.Currency
 		totalAccounts = summary.TotalAccounts
-		totalAssets = summary.TotalAssets.(decimal.Decimal)
-		totalLiabilities = summary.TotalLiabilities.(decimal.Decimal)
-		totalEquity = summary.TotalEquity.(decimal.Decimal)
-		totalRevenue = summary.TotalRevenue.(decimal.Decimal)
-		totalExpenses = summary.TotalExpenses.(decimal.Decimal)
+		totalAssets = convertNumeric(summary.TotalAssets)
+		totalLiabilities = convertNumeric(summary.TotalLiabilities)
+		totalEquity = convertNumeric(summary.TotalEquity)
+		totalRevenue = convertNumeric(summary.TotalRevenue)
+		totalExpenses = convertNumeric(summary.TotalExpenses)
 		generatedAt = summary.GeneratedAt.(time.Time)
 	}
 
@@ -407,10 +407,10 @@ func (s *Service) GetBalanceSummary(ctx context.Context, tenantSlug string, curr
 			AccountType:    string(b.AccountType),
 			Currency:       b.Currency,
 			AccountCount:   int(b.AccountCount),
-			TotalBalance:   b.TotalBalance.(decimal.Decimal),
-			AverageBalance: b.AverageBalance.(decimal.Decimal),
-			MinimumBalance: b.MinimumBalance.(decimal.Decimal),
-			MaximumBalance: b.MaximumBalance.(decimal.Decimal),
+			TotalBalance:   convertNumeric(b.TotalBalance),
+			AverageBalance: convertNumeric(b.AverageBalance),
+			MinimumBalance: convertNumeric(b.MinimumBalance),
+			MaximumBalance: convertNumeric(b.MaximumBalance),
 		})
 	}
 
@@ -447,7 +447,7 @@ func (s *Service) GetAccountBalances(ctx context.Context, tenantSlug string, acc
 			Currency:  balance.Currency,
 			Balance:   balance.Balance,
 			Version:   balance.Version,
-			UpdatedAt: balance.UpdatedAt, // Now directly assignable
+			UpdatedAt: balance.UpdatedAt,
 		})
 	}
 
@@ -572,4 +572,19 @@ func (s *Service) accountToResponseWithHierarchy(account queries.GetAccountHiera
 		CreatedAt:   account.CreatedAt,
 		UpdatedAt:   account.UpdatedAt,
 	}, nil
+}
+
+func convertNumeric(val interface{}) decimal.Decimal {
+	switch v := val.(type) {
+	case decimal.Decimal:
+		return v
+	case pgtype.Numeric:
+		if !v.Valid || v.NaN || v.InfinityModifier != 0 {
+			return decimal.Zero
+		}
+		// Convert using the Int and Exp fields directly
+		return decimal.NewFromBigInt(v.Int, v.Exp)
+	default:
+		return decimal.Zero
+	}
 }
