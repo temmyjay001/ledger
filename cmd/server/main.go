@@ -44,7 +44,6 @@ func main() {
 	// Start background webhook worker
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		log.Println("Starting webhook delivery worker...")
 		srv.StartWebhookWorker(ctx)
 	}()
 

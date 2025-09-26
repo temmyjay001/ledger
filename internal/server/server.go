@@ -64,7 +64,6 @@ func New(config *config.Config, db *storage.DB) *Server {
 
 // NEW: StartWebhookWorker starts the background webhook delivery worker
 func (s *Server) StartWebhookWorker(ctx context.Context) {
-	log.Println("Starting webhook delivery worker from server...")
 	s.webhookService.StartDeliveryWorker(ctx)
 }
 
