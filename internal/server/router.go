@@ -68,7 +68,7 @@ func (s *Server) Router() http.Handler {
 			r.With(s.authMiddleware.RequireScopes("accounts:write")).Delete("/accounts/{accountId}", s.accountHandlers.DeleteAccountHandler)
 			r.With(s.authMiddleware.RequireScopes("balances:read")).Get("/accounts/{accountId}/balance", s.accountHandlers.GetAccountBalanceHandler)
 			r.With(s.authMiddleware.RequireScopes("balances:read")).Get("/accounts/{accountId}/balance/history", s.accountHandlers.GetAccountBalanceHistoryHandler)
-			r.With(s.authMiddleware.RequireScopes("balances:read")).Get("/balances/summary", s.accountHandlers.GetBalanceSummaryHandler)
+			r.With(s.authMiddleware.RequireScopes("balances:read")).Get("/accounts/balances/summary", s.accountHandlers.GetBalanceSummaryHandler)
 
 			// Account hierarchy and stats
 			r.With(s.authMiddleware.RequireScopes("accounts:read")).Get("/accounts/hierarchy", s.accountHandlers.GetAccountHierarchyHandler)
