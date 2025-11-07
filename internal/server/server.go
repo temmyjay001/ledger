@@ -17,10 +17,8 @@ import (
 type Server struct {
 	config              *config.Config
 	db                  *storage.DB
-	authService         *auth.Service
 	authMiddleware      *auth.Middleware
 	authHandlers        *auth.Handlers
-	tenantService       *tenant.Service
 	tenantHandlers      *tenant.Handlers
 	accountHandlers     *accounts.Handlers
 	transactionHandlers *transactions.Handlers
@@ -62,12 +60,12 @@ func New(config *config.Config, db *storage.DB) *Server {
 	}
 }
 
-// NEW: StartWebhookWorker starts the background webhook delivery worker
+// StartWebhookWorker starts the background webhook delivery worker
 func (s *Server) StartWebhookWorker(ctx context.Context) {
 	s.webhookService.StartDeliveryWorker(ctx)
 }
 
-// NEW: EventWebhookIntegration handles event-to-webhook flow
+// EventWebhookIntegration handles event-to-webhook flow
 func (s *Server) setupEventWebhookIntegration() {
 	// This could be expanded to set up event listeners
 	// For now, the integration happens in the transaction service
